@@ -1,14 +1,15 @@
-# Project State
+# Project State: RepoLens
 
-## Status Overview
-- **Active Phase:** Ready for Phase 1 planning
-- **Milestone:** Milestone 1 (Foundation & Dashboard UI)
-- **Onboarding Status:** Complete (codebase mapped, requirements and roadmap defined)
+## Current Position
+- **Milestone:** Milestone 1 (Production GitHub Intelligence Dashboard)
+- **Active Phase:** Ready for Phase 1 (Foundation, GitHub API Layer & Repository Overview)
+- **Status:** Planning artifacts aligned with product vision; no code written yet.
 
-## Key Decisions
-- **Framework:** Next.js 16 (App Router) + React 19
-- **Styling:** Tailwind CSS v4
-- **Architecture:** Server Components default, strict TypeScript typing
+## Key Architectural Decisions
+1. **Full Real-World Integration:** No mock data. Live GitHub REST API for repo info and Git Trees API for file structures.
+2. **Security Isolation:** GitHub tokens (if configured on server) and AI API keys exist purely on the server side in Next.js Server Components / Route Handlers.
+3. **State Completeness:** Loading, empty, 404, rate-limit (403), and error states must be first-class citizens in every component.
+4. **Learning & Interview Focus:** Architecture choices, Next.js server/client boundaries, caching strategies, and resilience patterns will be explained at every step.
 
-## Next Steps
-- Run `/gsd-plan-phase 1` to begin Phase 1 execution planning.
+## Next Step
+- Plan and execute Phase 1: URL parser, GitHub API client, UI shell, and Repository Overview dashboard.
