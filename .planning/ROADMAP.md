@@ -4,16 +4,12 @@
 
 ---
 
-### [ ] Phase 1: Foundation, GitHub API Layer & Repository Overview
+### [x] Phase 1: Foundation, GitHub API Layer & Repository Overview
 *Deliverable: A working, polished landing page and live repository overview dashboard with robust error and rate-limit handling.*
-- **1.1 URL Parser & Validator:** Utility to parse and normalize any GitHub URL (`https://github.com/owner/repo`, `github.com/owner/repo`, `owner/repo`) with edge case protection.
-- **1.2 Resilient GitHub API Client:** Server-side API wrapper handling repository metadata, languages, latest commits, and rate limit telemetry (`x-ratelimit-remaining`, `x-ratelimit-reset`).
-- **1.3 UI Shell & State Architecture:** Polished dark-mode-first dashboard layout with robust states:
-  - Input bar with quick-try example repos.
-  - Loading skeleton states.
-  - Error states (404 Not Found, Invalid URL, Empty Repo).
-  - Rate Limit banner with live countdown to reset.
-- **1.4 Repository Overview Component:** High-polish summary cards displaying stats (stars, forks, open issues, license, default branch), language distribution bar, and latest commit info.
+- [x] **1.1 URL Parser & Validator:** Utility to parse and normalize any GitHub URL (`https://github.com/owner/repo`, `github.com/owner/repo`, `owner/repo`) with edge case protection.
+- [x] **1.2 Resilient GitHub API Client:** Server-side API wrapper handling repository metadata, languages, latest commits, and rate limit telemetry (`x-ratelimit-remaining`, `x-ratelimit-reset`).
+- [x] **1.3 UI Shell & State Architecture:** Polished dark-mode-first dashboard layout with robust states (loading skeleton, 404 error, rate limit banner, empty state).
+- [x] **1.4 Repository Overview Component:** High-polish summary cards displaying stats, language distribution bar, and latest commit info.
 
 ---
 
