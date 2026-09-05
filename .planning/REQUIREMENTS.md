@@ -1,65 +1,79 @@
 # Requirements: RepoLens
 
-## 1. Functional Requirements
+## 1. Pillar A: Repository Explorer (Foundation)
 
-### FR-01: Repository Input & URL Parser
-- Accept full GitHub URLs (`https://github.com/owner/repo`, `github.com/owner/repo`) or shorthand format (`owner/repo`).
-- Validate and normalize inputs; support branch selection where applicable (defaulting to the repository's default branch).
+### REQ-A1: Repository URL Parsing & Overview
+- Accept and normalize any GitHub URL (`https://github.com/owner/repo`, `owner/repo`, deep links, `.git` suffix).
+- Fetch and display live metadata: stars, forks, watchers, open issues, license, default branch, primary languages breakdown, and latest commit info with relative timestamp. *(Implemented in Phase 1)*
 
-### FR-02: Repository Overview
-- Fetch live metadata via GitHub API:
-  - Repository name, description, topics/tags, license.
-  - Star count, fork count, watcher count, open issues.
-  - Primary languages and percentage breakdown.
-  - Default branch, latest commit timestamp, author, and commit message.
+### REQ-A2: Recursive File Tree Fetcher & Hierarchy Builder
+- Query GitHub Git Trees API (`GET /repos/{owner}/{repo}/git/trees/{tree_sha}?recursive=1`) to fetch full repository tree metadata.
+- Transform flat GitHub tree items (`path`, `type`, `size`, `sha`) into a sorted nested tree structure (`TreeNode`) with directory child counts and aggregated folder sizes.
+- Handle deep paths, hidden files (`.github`, `.env.example`), and prevent UI crashes on massive repositories (>10,000 files).
 
-### FR-03: Live Repository File & Directory Tree
-- Fetch and display the actual repository file tree using GitHub Git Trees API (`recursive=1`).
-- Provide collapsible directory navigation, search/filter by filename, and file-type icons.
-- Support viewing file contents (e.g. README.md, `package.json`, configuration files) directly in the dashboard with syntax formatting.
+### REQ-A3: Key Project Documents Auto-Detection
+- Automatically identify, categorize, and badge critical project documents from the tree:
+  - **Onboarding & Community:** `README.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `LICENSE`.
+  - **Architecture & Design:** `ARCHITECTURE.md`, `DESIGN.md`, `docs/`, `RFCs`.
+  - **Package & Build Manifests:** `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `pom.xml`, `Dockerfile`.
+- Provide 1-click Quick Access tabs to view these documents immediately.
 
-### FR-04: Architectural Connection Breakdown
-- Identify how major components connect (e.g., frontend routing, backend API routes, database models, configuration layers).
-- Detect framework conventions (e.g., Next.js, Vite, Django, Express, Rails) to surface key entry points.
+### REQ-A4: Safe File Content Fetching & Decoding
+- Fetch file content on demand via GitHub Contents API or raw content endpoints.
+- Provide safe Base64 decoding, UTF-8 normalization, and size guardrails (preventing client freeze on large binaries or lockfiles).
+- Detect file type/format: Markdown, TypeScript/JavaScript, Python, Rust, Go, JSON/YAML/TOML, Shell, Plain Text, or Binary/Image.
 
-### FR-05: "Where Should I Start?" Onboarding Guide
-- Provide a curated "start here" pathway for developers new to the codebase.
-- Highlight:
-  - Key entry point files (e.g. `main.ts`, `app/page.tsx`, `src/index.js`).
-  - Recommended reading order.
-  - Essential configuration files (`package.json`, `tsconfig.json`, `.env.example`, `Dockerfile`).
-
-### FR-06: AI Repository Summary & Engineering Observations
-- Synthesize an AI analysis based on README, file tree, package manifests, and architectural structure.
-- Generate:
-  - High-level purpose & problem domain.
-  - Architecture and design pattern observations.
-  - Codebase maturity & quality observations (testing presence, CI/CD, documentation status).
-
-### FR-07: "Ask the Repository" Interactive Q&A
-- Interactive conversational interface allowing users to ask natural-language questions about the repository (e.g., *"How does authentication work in this project?"*, *"Where are API requests handled?"*).
-- Ground AI answers in retrieved repo context (README, file manifests, directory map, key files).
-
-### FR-08 (Future / Post-V1): Visual Architecture Map & Repo Comparison
-- Interactive node-edge visual graph of directories and module connections.
-- Side-by-side repository comparison (e.g. comparing two similar libraries or frameworks).
+### REQ-A5: Split-Pane Explorer & Document Viewer UI
+- **Left Pane:** Searchable, collapsible directory tree with real-time path filtering, file-type icons, and breadcrumb navigation.
+- **Right Pane:** Document and code viewer with formatted Markdown rendering (GitHub-flavored styling) and syntax-highlighted code inspection.
+- Synchronize active file view with URL state (`/?repo=owner/repo&file=path/to/file.ts`).
 
 ---
 
-## 2. Non-Functional & Resilience Requirements
+## 2. Pillar B: Repository Intelligence (Phase 3)
 
-### NFR-01: Robust Error & State Handling
-- **Loading States:** Skeleton screens and progressive indicators during GitHub API and AI streaming.
-- **Empty States:** Clear messaging for brand-new or empty repositories.
-- **404 / Invalid URL:** Friendly guidance when a repository is private, deleted, or mistyped.
-- **Rate Limit Handling:** Dedicated UI for GitHub API rate limit exhaustion (HTTP 403) showing reset time and an optional user personal access token (PAT) input stored securely in session/client memory for higher rate limits.
+### REQ-B1: Subsystem & Topology Analysis
+- Automatically classify directory roles (`frontend`, `backend`, `api`, `database`, `config`, `assets`, `tests`, `docs`).
+- Map high-level module connections and architecture patterns.
 
-### NFR-02: Security & Zero Secret Exposure
-- Server-side environment variables (`GITHUB_TOKEN`, `AI_API_KEY`) must never be leaked to client bundles or browser responses.
+### REQ-B2: "Where Should I Start?" Onboarding Guide
+- Algorithmic reading order for new developers.
+- Highlight key entry points (e.g. `main.ts`, `app/page.tsx`, `index.js`, `src/lib.rs`).
+- Environment prerequisites and configuration checklist (`.env.example`, build scripts).
 
-### NFR-03: Performance & Caching
-- Utilize Next.js App Router caching (`fetch` cache tags / revalidation) to prevent duplicate API hits for the same repository tree within short windows.
+---
 
-### NFR-04: UI/UX & Aesthetics
-- Sleek, modern, dark-mode-first developer UI using Tailwind CSS v4.
-- High visual polish with responsive desktop/tablet/mobile layouts.
+## 3. Pillar C: Ask RepoLens (Phase 4)
+
+### REQ-C1: Grounded AI Repository Summary
+- Streaming AI analysis covering domain, architecture patterns, tech stack, and engineering observations.
+
+### REQ-C2: Interactive Conversational Q&A
+- Interactive chat grounded in repository context (README, package manifests, tree structure, key source files).
+- Cites specific files and code references.
+
+---
+
+## 4. Pillar D: Open Source Contributor Mode (Phase 5+)
+
+### REQ-D1: Repository Discovery & Fit Matching
+- Match developers to repositories based on programming language, domain, and experience.
+
+### REQ-D2: Issue Recommendation & Skill Tagging
+- Fetch open issues labeled `good first issue`, `help wanted`, `bug`, or `enhancement`.
+- Filter and recommend issues based on contributor skill level and interests.
+
+### REQ-D3: Issue Requirement Analysis & Subsystem Localization
+- AI-assisted explanation of issue requirements and acceptance criteria.
+- Identification of likely files and subsystems that need modification to resolve the issue.
+
+### REQ-D4: Guided Contribution Pathway
+- Step-by-step contribution checklist: setup reproduction test, code modification guidelines, test verification, and PR template guidance.
+
+---
+
+## 5. Non-Functional & Resilience Requirements
+- **NFR-01: Resilience First:** Complete state handling (Loading skeleton, Empty state, 404 Not Found, 403 Rate Limit with live countdown timer).
+- **NFR-02: Zero Secret Exposure:** GitHub tokens and AI keys strictly isolated to the server runtime.
+- **NFR-03: Performance & Caching:** Next.js ISR caching (`revalidate: 60`) on GitHub API calls.
+- **NFR-04: Strict Typing & Test Coverage:** 100% TypeScript strict mode; verified with Node native unit and integration tests.
