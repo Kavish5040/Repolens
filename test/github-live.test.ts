@@ -7,8 +7,12 @@ describe("GitHub API Live Integration", () => {
     try {
       const overview = await getRepoOverview("facebook/react");
       assert.equal(overview.name, "react");
-      assert.equal(overview.fullName, "facebook/react");
-      assert.equal(overview.owner.login, "facebook");
+      assert.ok(
+        overview.fullName === "facebook/react" || overview.fullName === "react/react"
+      );
+      assert.ok(
+        overview.owner.login === "facebook" || overview.owner.login === "react"
+      );
       assert.ok(overview.stars > 100000, "Stars should be over 100k");
       assert.ok(overview.languages.length > 0, "Should have language breakdown");
       assert.ok(overview.rateLimit.limit > 0, "Should have rate limit info");

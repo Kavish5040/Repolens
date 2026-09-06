@@ -2,10 +2,13 @@ import type {
   GitHubRepoDto,
   GitHubLanguagesDto,
   GitHubCommitDto,
+  GitTreeDto,
+  GitHubContentDto,
   RepoOverview,
   LanguageBreakdown,
   CommitInfo,
   RateLimitInfo,
+  FileContentData,
 } from "./types.ts";
 import {
   GitHubNotFoundError,
@@ -41,6 +44,87 @@ const LANGUAGE_COLORS: Record<string, string> = {
   Dockerfile: "#384d54",
   Lua: "#000080",
 };
+
+// Common binary file extensions to prevent text decoding crashes
+const BINARY_EXTENSIONS = new Set([
+  "png", "jpg", "jpeg", "gif", "ico", "webp", "bmp", "tiff", "svgz",
+  "zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar",
+  "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx",
+  "exe", "dll", "so", "dylib", "bin", "wasm", "node", "pyc", "class", "o", "a",
+  "woff", "woff2", "ttf", "eot", "otf",
+  "mp3", "mp4", "wav", "ogg", "flac", "webm", "avi", "mov",
+  "lockb", "db", "sqlite", "sqlite3"
+]);
+
+/**
+ * Maps a file path or extension to a human-readable language identifier.
+ */
+export function getFileLanguage(filePath: string): { language: string; isMarkdown: boolean; isBinary: boolean } {
+  const fileName = filePath.split("/").pop() || filePath;
+  const parts = fileName.split(".");
+  const ext = parts.length > 1 ? parts.pop()!.toLowerCase() : "";
+
+  if (BINARY_EXTENSIONS.has(ext)) {
+    return { language: "Binary", isMarkdown: false, isBinary: true };
+  }
+
+  if (ext === "md" || ext === "markdown" || ext === "mdx" || fileName.toLowerCase() === "readme" || fileName.toLowerCase() === "contributing") {
+    return { language: "Markdown", isMarkdown: true, isBinary: false };
+  }
+
+  const map: Record<string, string> = {
+    ts: "TypeScript",
+    tsx: "TypeScript (React)",
+    js: "JavaScript",
+    jsx: "JavaScript (React)",
+    mjs: "JavaScript",
+    cjs: "JavaScript",
+    json: "JSON",
+    yaml: "YAML",
+    yml: "YAML",
+    toml: "TOML",
+    py: "Python",
+    rs: "Rust",
+    go: "Go",
+    java: "Java",
+    c: "C",
+    h: "C Header",
+    cpp: "C++",
+    hpp: "C++ Header",
+    cc: "C++",
+    cs: "C#",
+    rb: "Ruby",
+    php: "PHP",
+    swift: "Swift",
+    kt: "Kotlin",
+    kts: "Kotlin",
+    html: "HTML",
+    htm: "HTML",
+    css: "CSS",
+    scss: "SCSS",
+    sass: "Sass",
+    less: "Less",
+    vue: "Vue",
+    svelte: "Svelte",
+    sh: "Shell",
+    bash: "Shell",
+    zsh: "Shell",
+    sql: "SQL",
+    graphql: "GraphQL",
+    gql: "GraphQL",
+    dockerfile: "Dockerfile",
+    env: "Config",
+    gitignore: "Git Config",
+    txt: "Plain Text",
+  };
+
+  if (fileName.toLowerCase() === "dockerfile") {
+    return { language: "Dockerfile", isMarkdown: false, isBinary: false };
+  }
+
+  const language = map[ext] || (ext ? ext.toUpperCase() : "Plain Text");
+  return { language, isMarkdown: false, isBinary: false };
+}
 
 /**
  * Extracts GitHub rate limit telemetry from response headers.
@@ -222,6 +306,93 @@ export async function fetchLatestCommit(
     }
     throw error;
   }
+}
+
+/**
+ * Fetches full recursive Git tree metadata for a repository.
+ */
+export async function fetchGitTree(
+  owner: string,
+  repo: string,
+  treeSha: string = "HEAD",
+  options?: FetchGitHubOptions
+): Promise<{ tree: GitTreeDto; rateLimit: RateLimitInfo }> {
+  const { data: tree, rateLimit } = await fetchGitHub<GitTreeDto>(
+    `/repos/${owner}/${repo}/git/trees/${encodeURIComponent(treeSha)}?recursive=1`,
+    options
+  );
+
+  return { tree, rateLimit };
+}
+
+/**
+ * Fetches and decodes file content safely with size guardrails and binary detection.
+ */
+export async function fetchFileContent(
+  owner: string,
+  repo: string,
+  path: string,
+  options: FetchGitHubOptions & { branch?: string } = {}
+): Promise<{ file: FileContentData; rateLimit: RateLimitInfo }> {
+  const cleanPath = path.replace(/^\/+/, "");
+  const branchQuery = options.branch ? `?ref=${encodeURIComponent(options.branch)}` : "";
+
+  const { data: contentDto, rateLimit } = await fetchGitHub<GitHubContentDto>(
+    `/repos/${owner}/${repo}/contents/${cleanPath.split("/").map(encodeURIComponent).join("/")}${branchQuery}`,
+    options
+  );
+
+  const fileName = contentDto.name || cleanPath.split("/").pop() || cleanPath;
+  const parts = fileName.split(".");
+  const extension = parts.length > 1 ? `.${parts.pop()!.toLowerCase()}` : "";
+  const { language, isMarkdown, isBinary } = getFileLanguage(cleanPath);
+
+  // Maximum allowed size for in-app text rendering (1.5 MB)
+  const MAX_FILE_SIZE = 1.5 * 1024 * 1024;
+  const isTruncated = contentDto.size > MAX_FILE_SIZE;
+
+  let decodedContent = "";
+
+  if (isBinary) {
+    decodedContent = `[Binary file: ${contentDto.size} bytes. Binary previews are not supported in text viewer.]`;
+  } else if (isTruncated) {
+    decodedContent = `[File size exceeds 1.5 MB limit (${contentDto.size} bytes). Direct viewing is disabled to protect client performance.]`;
+  } else if (contentDto.content && contentDto.encoding === "base64") {
+    // Remove newlines and decode base64
+    const cleanBase64 = contentDto.content.replace(/\s/g, "");
+    try {
+      decodedContent = Buffer.from(cleanBase64, "base64").toString("utf-8");
+    } catch {
+      decodedContent = "[Error decoding file content as UTF-8.]";
+    }
+  } else if (contentDto.download_url) {
+    // For files >1MB without embedded base64, fetch raw
+    try {
+      const rawRes = await fetch(contentDto.download_url);
+      if (rawRes.ok) {
+        decodedContent = await rawRes.text();
+      } else {
+        decodedContent = `[Failed to download file content: ${rawRes.statusText}]`;
+      }
+    } catch {
+      decodedContent = "[Error downloading raw file content.]";
+    }
+  }
+
+  const file: FileContentData = {
+    path: cleanPath,
+    name: fileName,
+    content: decodedContent,
+    size: contentDto.size,
+    extension,
+    language,
+    isMarkdown,
+    isBinary,
+    isTruncated,
+    url: contentDto.html_url,
+  };
+
+  return { file, rateLimit };
 }
 
 /**

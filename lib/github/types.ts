@@ -2,9 +2,9 @@
  * GitHub API Data Transfer Objects (DTOs) & Internal Domain Models
  *
  * Architectural Note:
- * We decouple raw GitHub API schemas (DTOs) from our application's domain models (RepoOverview).
+ * We decouple raw GitHub API schemas (DTOs) from our application's domain models.
  * This protects the application from upstream API shape changes and allows us to compute
- * clean, presentation-ready metrics (such as language percentages and normalized timestamps).
+ * clean, presentation-ready metrics (such as language percentages and hierarchical trees).
  */
 
 // ==========================================
@@ -74,6 +74,36 @@ export interface GitHubCommitDto {
   author: GitHubOwnerDto | null;
 }
 
+export interface GitTreeItemDto {
+  path: string;
+  mode: string;
+  type: "blob" | "tree";
+  sha: string;
+  size?: number;
+  url: string;
+}
+
+export interface GitTreeDto {
+  sha: string;
+  url: string;
+  tree: GitTreeItemDto[];
+  truncated: boolean;
+}
+
+export interface GitHubContentDto {
+  type: "file" | "dir" | "symlink" | "submodule";
+  encoding?: string;
+  size: number;
+  name: string;
+  path: string;
+  content?: string;
+  sha: string;
+  url: string;
+  git_url: string;
+  html_url: string;
+  download_url: string | null;
+}
+
 // ==========================================
 // 2. Application Domain Models
 // ==========================================
@@ -132,6 +162,62 @@ export interface RepoOverview {
   languages: LanguageBreakdown[];
   latestCommit: CommitInfo | null;
   rateLimit: RateLimitInfo;
+}
+
+export type KeyDocumentType =
+  | "readme"
+  | "contributing"
+  | "license"
+  | "code_of_conduct"
+  | "security"
+  | "manifest"
+  | "architecture"
+  | "documentation";
+
+export interface KeyDocument {
+  type: KeyDocumentType;
+  name: string;
+  path: string;
+  label: string;
+  badgeColor: string;
+  size?: number;
+}
+
+export interface TreeNode {
+  id: string;
+  name: string;
+  path: string;
+  type: "file" | "directory";
+  size?: number;
+  sha: string;
+  extension?: string;
+  children?: TreeNode[];
+  fileCount?: number;
+  isKeyDoc?: boolean;
+  keyDocType?: KeyDocumentType;
+}
+
+export interface RepoTreeData {
+  rootNodes: TreeNode[];
+  keyDocuments: KeyDocument[];
+  totalFiles: number;
+  totalDirectories: number;
+  truncated: boolean;
+  defaultBranch: string;
+  rateLimit: RateLimitInfo;
+}
+
+export interface FileContentData {
+  path: string;
+  name: string;
+  content: string;
+  size: number;
+  extension: string;
+  language: string;
+  isMarkdown: boolean;
+  isBinary: boolean;
+  isTruncated: boolean;
+  url?: string;
 }
 
 // ==========================================
