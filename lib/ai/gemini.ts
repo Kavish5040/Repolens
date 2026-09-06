@@ -1,6 +1,6 @@
 import type { ChatMessage } from "./types.ts";
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const API_TIMEOUT_MS = 25000;
 
 export interface GeminiStreamOptions {
