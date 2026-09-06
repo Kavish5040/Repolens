@@ -24,11 +24,11 @@
 
 ---
 
-### [ ] Phase 3: Repository Intelligence & "Where Should I Start?" Guide (Pillar B)
+### [x] Phase 3: Repository Intelligence & "Where Should I Start?" Guide (Pillar B)
 *Deliverable: Intelligent repository topology, subsystem classification, and newcomer onboarding guide.*
-- **3.1 Subsystem & Topology Classifier:** Heuristic analysis to identify framework/archetype (Next.js, Node, Python, Rust, Go, monorepo) and directory roles (frontend, backend, db, config, assets).
-- **3.2 "Where Should I Start?" Guide:** Computed reading order, key entry point files, and environment setup checklist for developers onboarding to the codebase.
-- **3.3 Architecture Breakdown View:** Visual representation of project layers and entry points.
+- [x] **3.1 Subsystem & Topology Classifier:** Deterministic heuristic analysis to classify directory roles (application, components, source, tests, docs, tooling, config, infra, monorepo workspaces) and detect technology signals (Next.js, React, FastAPI, Django, Vite, Tailwind, Rust, Python, Go, Java, Jest, Vitest, Playwright, Pytest, GitHub Actions, Docker, ESLint, Prettier) with observable evidence.
+- [x] **3.2 "Where Should I Start?" Guide:** Computed sequential reading order and ranked entry point candidate detection with signal confidence and 1-click navigation to inspect files/folders in the explorer.
+- [x] **3.3 Architecture Breakdown View:** Responsive dashboard tab with structural insights banner (documentation, testing, CI/CD, monorepo, scale), onboarding sequence card, tech signals grid, entry points list, and structural topology matrix.
 
 ---
 

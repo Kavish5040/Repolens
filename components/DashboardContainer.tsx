@@ -7,13 +7,14 @@ import { RepoSearchInput } from "@/components/RepoSearchInput.tsx";
 import { QuickTryRepos } from "@/components/QuickTryRepos.tsx";
 import { RepoOverviewCard } from "@/components/overview/RepoOverviewCard.tsx";
 import { RepoExplorer } from "@/components/explorer/RepoExplorer.tsx";
+import { IntelligenceDashboard } from "@/components/intelligence/IntelligenceDashboard.tsx";
 import { LoadingSkeleton } from "@/components/states/LoadingSkeleton.tsx";
 import { ErrorBanner } from "@/components/states/ErrorBanner.tsx";
 import { RateLimitBanner } from "@/components/states/RateLimitBanner.tsx";
 import { EmptyState } from "@/components/states/EmptyState.tsx";
 import type { RepoOverview, RateLimitInfo, ApiResponse } from "@/lib/github/types.ts";
 
-type ActiveTab = "overview" | "explorer";
+type ActiveTab = "overview" | "explorer" | "intelligence";
 
 export function DashboardContainer() {
   const searchParams = useSearchParams();
@@ -127,6 +128,14 @@ export function DashboardContainer() {
     }
   };
 
+  const handleNavigateFromIntelligence = (targetPath: string) => {
+    setActiveFilePath(targetPath);
+    setActiveTab("explorer");
+    if (currentRepo) {
+      updateUrl(currentRepo, "explorer", targetPath);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       {/* App Header */}
@@ -170,7 +179,7 @@ export function DashboardContainer() {
             <div className="flex flex-col gap-6">
               {/* Tab Navigation Controls */}
               <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => handleTabChange("overview")}
@@ -184,6 +193,24 @@ export function DashboardContainer() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                     <span>Overview</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange("intelligence")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                      activeTab === "intelligence"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Repository Intelligence</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold">
+                      Pillar B
+                    </span>
                   </button>
 
                   <button
@@ -210,7 +237,17 @@ export function DashboardContainer() {
               {/* Tab 1: Overview Dashboard */}
               {activeTab === "overview" && <RepoOverviewCard repo={overview} />}
 
-              {/* Tab 2: File Explorer & Key Documents */}
+              {/* Tab 2: Repository Intelligence & Where Should I Start? */}
+              {activeTab === "intelligence" && (
+                <IntelligenceDashboard
+                  repoFullName={overview.fullName}
+                  defaultBranch={overview.defaultBranch}
+                  onNavigateToFile={handleNavigateFromIntelligence}
+                  onNavigateToFolder={handleNavigateFromIntelligence}
+                />
+              )}
+
+              {/* Tab 3: File Explorer & Key Documents */}
               {activeTab === "explorer" && (
                 <RepoExplorer
                   repoFullName={overview.fullName}
