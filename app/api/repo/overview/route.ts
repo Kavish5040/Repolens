@@ -3,6 +3,7 @@ import { getRepoOverview } from "@/lib/github/client.ts";
 import {
   GitHubNotFoundError,
   GitHubRateLimitError,
+  GitHubAuthError,
   InvalidRepoUrlError,
   GitHubApiError,
 } from "@/lib/github/errors.ts";
@@ -50,6 +51,19 @@ export async function GET(
           },
         },
         { status: 400 }
+      );
+    }
+
+    if (error instanceof GitHubAuthError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 401 }
       );
     }
 

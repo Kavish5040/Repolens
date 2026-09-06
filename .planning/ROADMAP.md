@@ -40,12 +40,12 @@
 
 ---
 
-### [ ] Phase 5: Open Source Contributor Mode (Pillar D)
+### [x] Phase 5: Open Source Contributor Mode (Pillar D)
 *Deliverable: Contributor discovery, issue recommendation engine, and guided contribution pathways.*
-- **5.1 Contributor Issue Recommender:** GitHub Issues API integration filtering for `good first issue` / `help wanted` by skill level and language.
-- **5.2 Issue Requirement Analyzer:** AI breakdown of what an issue requires and technical prerequisites.
-- **5.3 Subsystem & File Localization:** Mapping issue scope to relevant repository files and subsystems.
-- **5.4 Guided Contribution Pathway:** Actionable step-by-step checklist for reproducing, testing, and submitting a pull request.
+- [x] **5.1 Contributor Issue Recommender:** GitHub Issues API integration filtering for `good first issue` / `help wanted` with transparent difficulty badges and readiness score (0–100).
+- [x] **5.2 Issue Requirement Analyzer:** AI breakdown of what an issue requires, root cause explanation, and testable acceptance criteria.
+- [x] **5.3 Subsystem & File Localization:** Evidence-based candidate file ranking (`High`, `Medium`, `Low`) with 1-click jump to the File Explorer.
+- [x] **5.4 Guided Contribution Pathway:** Actionable step-by-step checklist, manifest-verified test runner commands, and PR submission tips.
 
 ---
 

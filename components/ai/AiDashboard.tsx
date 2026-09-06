@@ -10,6 +10,7 @@ interface AiDashboardProps {
   detectedTechnologies?: string[];
   activeFilePath?: string | null;
   onSelectFile?: (path: string) => void;
+  pat?: string | null;
 }
 
 export function AiDashboard({

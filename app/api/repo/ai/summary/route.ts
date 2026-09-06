@@ -9,25 +9,28 @@ import { analyzeRepositoryIntelligence } from "@/lib/github/intelligence.ts";
 import { detectKeyDocuments } from "@/lib/github/tree.ts";
 import { buildSummaryContext } from "@/lib/ai/context.ts";
 import { REPO_SUMMARY_SYSTEM_PROMPT } from "@/lib/ai/prompts.ts";
-import { streamGeminiContent, isGeminiKeyConfigured } from "@/lib/ai/gemini.ts";
+import { streamAiCompletion, validateAiConfig } from "@/lib/ai/transport.ts";
 import {
   GitHubNotFoundError,
   GitHubRateLimitError,
+  GitHubAuthError,
   InvalidRepoUrlError,
   GitHubApiError,
 } from "@/lib/github/errors.ts";
 import type { RepoOverview } from "@/lib/github/types.ts";
 
 export async function POST(request: NextRequest) {
-  // Check API key configuration first
-  if (!isGeminiKeyConfigured()) {
+  // Validate AI Gateway configuration
+  const aiValidation = validateAiConfig();
+  if (!aiValidation.valid) {
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "MISSING_API_KEY",
+          code: "AI_CONFIG_ERROR",
           message:
-            "Gemini API key is not configured. Please add GEMINI_API_KEY=your_key to your .env.local file to enable AI features.",
+            aiValidation.error ||
+            "AI gateway is not configured. Please ensure AI_BASE_URL and AI_MODEL are set in your .env.local file.",
         },
       },
       { status: 400 }
@@ -120,8 +123,8 @@ export async function POST(request: NextRequest) {
     // 5. Build Bounded Summary Context
     const contextBundle = buildSummaryContext(overview, rawTree.tree, intelligence, fetchedFiles);
 
-    // 6. Stream Gemini Content
-    const stream = await streamGeminiContent({
+    // 6. Stream AI Content via provider-agnostic gateway
+    const stream = await streamAiCompletion({
       systemPrompt: REPO_SUMMARY_SYSTEM_PROMPT,
       contextText: contextBundle.systemContextText,
       userPrompt: `Generate a comprehensive, evidence-backed architectural summary for repository ${overview.fullName}.`,
@@ -136,6 +139,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof InvalidRepoUrlError) {
       return NextResponse.json({ success: false, error: { code: error.code, message: error.message } }, { status: 400 });
+    }
+    if (error instanceof GitHubAuthError) {
+      return NextResponse.json({ success: false, error: { code: error.code, message: error.message } }, { status: 401 });
     }
     if (error instanceof GitHubNotFoundError) {
       return NextResponse.json({ success: false, error: { code: error.code, message: error.message } }, { status: 404 });

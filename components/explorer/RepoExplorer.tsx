@@ -13,12 +13,14 @@ import { KeyDocsBar } from "./KeyDocsBar.tsx";
 import { DocumentViewer } from "./DocumentViewer.tsx";
 import { CodeViewer } from "./CodeViewer.tsx";
 import { ErrorBanner } from "@/components/states/ErrorBanner.tsx";
+import { loadPat } from "@/lib/pat/storage.ts";
 
 interface RepoExplorerProps {
   repoFullName: string;
   defaultBranch?: string;
   initialFilePath?: string | null;
   onFileSelect?: (path: string) => void;
+  pat?: string | null;
 }
 
 export function RepoExplorer({
@@ -48,7 +50,10 @@ export function RepoExplorer({
 
     try {
       const branchQuery = defaultBranch ? `&branch=${encodeURIComponent(defaultBranch)}` : "";
-      const res = await fetch(`/api/repo/tree?repo=${encodeURIComponent(repoFullName)}${branchQuery}`);
+      const headers: HeadersInit = {};
+      const currentPat = loadPat();
+      if (currentPat) headers["x-github-token"] = currentPat;
+      const res = await fetch(`/api/repo/tree?repo=${encodeURIComponent(repoFullName)}${branchQuery}`, { headers });
       const body: ApiResponse<RepoTreeData> = await res.json();
 
       if (body.success) {
@@ -81,8 +86,12 @@ export function RepoExplorer({
 
       try {
         const branchQuery = defaultBranch ? `&branch=${encodeURIComponent(defaultBranch)}` : "";
+        const headers: HeadersInit = {};
+        const currentPat = loadPat();
+        if (currentPat) headers["x-github-token"] = currentPat;
         const res = await fetch(
-          `/api/repo/content?repo=${encodeURIComponent(repoFullName)}&path=${encodeURIComponent(path)}${branchQuery}`
+          `/api/repo/content?repo=${encodeURIComponent(repoFullName)}&path=${encodeURIComponent(path)}${branchQuery}`,
+          { headers }
         );
         const body: ApiResponse<FileContentData> = await res.json();
 

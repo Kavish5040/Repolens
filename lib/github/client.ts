@@ -13,6 +13,7 @@ import type {
 import {
   GitHubNotFoundError,
   GitHubRateLimitError,
+  GitHubAuthError,
   GitHubApiError,
 } from "./errors.ts";
 import { parseGitHubUrl } from "./parser.ts";
@@ -209,6 +210,10 @@ export async function fetchGitHub<T>(
       const owner = match ? match[1] : "unknown";
       const repo = match ? match[2] : "unknown";
       throw new GitHubNotFoundError(owner, repo);
+    }
+
+    if (response.status === 401) {
+      throw new GitHubAuthError();
     }
 
     if (response.status === 403 || response.status === 429) {

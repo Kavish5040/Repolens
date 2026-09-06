@@ -3,8 +3,12 @@
  *
  * Architectural Note:
  * Using custom error classes allows caller functions to use `instanceof` checks
- * or error codes to differentiate between a 404 (repo not found/private), a 403 (rate limited),
- * an invalid user input (400), or unexpected network issues.
+ * or error codes to differentiate between:
+ *   - 401 INVALID_PAT  — bad/expired GitHub credentials (user PAT or server token)
+ *   - 404 NOT_FOUND    — repository not found or private
+ *   - 403 RATE_LIMITED — GitHub API quota exceeded
+ *   - 400 INVALID_URL  — malformed repository URL from user input
+ *   - 5xx API_ERROR    — unexpected GitHub API or network failure
  */
 
 export class GitHubError extends Error {
@@ -54,6 +58,23 @@ export class GitHubRateLimitError extends GitHubError {
     this.resetAt = resetAt;
     this.limit = limit;
     this.remaining = remaining;
+  }
+}
+
+/**
+ * Thrown when GitHub returns 401 Unauthorized — the supplied PAT or server token
+ * is invalid, expired, or lacks the required scope.
+ *
+ * The error message intentionally does NOT echo the token value.
+ */
+export class GitHubAuthError extends GitHubError {
+  constructor() {
+    super(
+      "GitHub API authentication failed. Your personal access token may be invalid or expired. Please clear it and enter a new one.",
+      "INVALID_PAT",
+      401
+    );
+    this.name = "GitHubAuthError";
   }
 }
 

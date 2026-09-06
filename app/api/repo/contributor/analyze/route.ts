@@ -7,9 +7,14 @@ import {
 } from "@/lib/github/client.ts";
 import { analyzeRepositoryIntelligence } from "@/lib/github/intelligence.ts";
 import { detectKeyDocuments } from "@/lib/github/tree.ts";
-import { buildChatContext, pruneChatHistory } from "@/lib/ai/context.ts";
-import { REPO_CHAT_SYSTEM_PROMPT } from "@/lib/ai/prompts.ts";
+import {
+  localizeFiles,
+  extractVerifiedTestCommands,
+} from "@/lib/contributor/issues.ts";
+import { buildContributorContext } from "@/lib/contributor/context.ts";
+import { CONTRIBUTOR_ANALYSIS_SYSTEM_PROMPT } from "@/lib/contributor/prompts.ts";
 import { streamAiCompletion, validateAiConfig } from "@/lib/ai/transport.ts";
+import type { ContributorIssue } from "@/lib/contributor/types.ts";
 import {
   GitHubNotFoundError,
   GitHubRateLimitError,
@@ -17,11 +22,8 @@ import {
   InvalidRepoUrlError,
   GitHubApiError,
 } from "@/lib/github/errors.ts";
-import type { RepoOverview } from "@/lib/github/types.ts";
-import type { ChatMessage } from "@/lib/ai/types.ts";
 
 export async function POST(request: NextRequest) {
-  // Validate AI Gateway configuration
   const aiValidation = validateAiConfig();
   if (!aiValidation.valid) {
     return NextResponse.json(
@@ -31,7 +33,7 @@ export async function POST(request: NextRequest) {
           code: "AI_CONFIG_ERROR",
           message:
             aiValidation.error ||
-            "AI gateway is not configured. Please ensure AI_BASE_URL and AI_MODEL are set in your .env.local file.",
+            "AI gateway is not configured. Please ensure OMNIROUTE_BASE_URL and OMNIROUTE_MODEL are set in your .env.local file.",
         },
       },
       { status: 400 }
@@ -41,9 +43,7 @@ export async function POST(request: NextRequest) {
   let body: {
     repo?: string;
     branch?: string;
-    query?: string;
-    activeFile?: string | null;
-    messages?: ChatMessage[];
+    issue?: ContributorIssue;
   };
 
   try {
@@ -74,25 +74,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { repo: repoQuery, branch: inputBranch, query, activeFile, messages } = body;
+  const { repo: repoQuery, branch: inputBranch, issue } = body;
 
-  if (!repoQuery) {
+  if (!repoQuery || !issue) {
     return NextResponse.json(
-      { success: false, error: { code: "MISSING_PARAM", message: "Field 'repo' is required." } },
-      { status: 400 }
-    );
-  }
-
-  if (!query || typeof query !== "string" || query.trim().length === 0) {
-    return NextResponse.json(
-      { success: false, error: { code: "MISSING_QUERY", message: "A non-empty query string is required." } },
-      { status: 400 }
-    );
-  }
-
-  if (query.length > 1000) {
-    return NextResponse.json(
-      { success: false, error: { code: "QUERY_TOO_LONG", message: "Query exceeds 1,000 characters." } },
+      {
+        success: false,
+        error: {
+          code: "MISSING_PARAM",
+          message: "Fields 'repo' and 'issue' are required.",
+        },
+      },
       { status: 400 }
     );
   }
@@ -105,48 +97,32 @@ export async function POST(request: NextRequest) {
   try {
     const { owner, repo } = parseGitHubUrl(repoQuery);
 
-    // 1. Fetch Repository Metadata
+    // 1. Fetch Overview & Git Tree
     const overview = await getRepoOverview(`${owner}/${repo}`, { clientPat });
     const defaultBranch = inputBranch || overview.defaultBranch || "main";
-
-    // 2. Fetch Git Tree
     const { tree: rawTree } = await fetchGitTree(owner, repo, defaultBranch, { clientPat });
 
-    // 3. Compute Deterministic Intelligence
+    // 2. Compute Deterministic Intelligence
     const intelligence = analyzeRepositoryIntelligence(`${owner}/${repo}`, defaultBranch, rawTree.tree);
 
-    // 4. Identify Question-Targeted Files
+    // 3. Localize Candidate Files
+    const candidateRankings = localizeFiles(issue, rawTree.tree, intelligence);
+    const candidatePaths = candidateRankings.slice(0, 5).map((c) => c.path);
+
+    // 4. Identify Manifests and Contributing Document
     const keyDocs = detectKeyDocuments(rawTree.tree);
-    const keywords = query
-      .toLowerCase()
-      .replace(/[^a-z0-9_\-./]/g, " ")
-      .split(/\s+/)
-      .filter((w) => w.length >= 3);
+    const contributingDocMeta = keyDocs.find((d) => d.type === "contributing");
+    const manifestDocsMeta = keyDocs.filter((d) => d.type === "manifest").slice(0, 2);
 
-    // Collect candidates to fetch
-    const fileCandidates = new Set<string>();
+    const filesToFetch = Array.from(
+      new Set([
+        ...candidatePaths,
+        ...(contributingDocMeta ? [contributingDocMeta.path] : []),
+        ...manifestDocsMeta.map((m) => m.path),
+      ])
+    );
 
-    if (activeFile) {
-      fileCandidates.add(activeFile);
-    }
-
-    // Include primary readme and manifest
-    const readmeDoc = keyDocs.find((d) => d.type === "readme");
-    if (readmeDoc) fileCandidates.add(readmeDoc.path);
-    const manifestDoc = keyDocs.find((d) => d.type === "manifest");
-    if (manifestDoc) fileCandidates.add(manifestDoc.path);
-
-    // Match tree files by keywords (up to 3 files)
-    const matchingTreeFiles = rawTree.tree
-      .filter((item) => item.type === "blob" && keywords.some((kw) => item.path.toLowerCase().includes(kw)))
-      .slice(0, 3);
-
-    for (const match of matchingTreeFiles) {
-      fileCandidates.add(match.path);
-    }
-
-    // Fetch candidate contents (bounded to max 6 files total)
-    const filesToFetch = Array.from(fileCandidates).slice(0, 6);
+    // Fetch contents concurrently
     const fileFetchPromises = filesToFetch.map(async (filePath) => {
       try {
         const res = await fetchFileContent(owner, repo, filePath, { clientPat, branch: defaultBranch });
@@ -163,40 +139,47 @@ export async function POST(request: NextRequest) {
       (f): f is { path: string; content: string } => f !== null
     );
 
-    // 5. Build Bounded Chat Context
-    const contextBundle = buildChatContext(
-      overview,
-      rawTree.tree,
-      intelligence,
-      query,
-      fetchedFiles,
-      activeFile
+    // Extract manifest files for verified test commands
+    const manifestContents = fetchedFiles.filter((f) =>
+      manifestDocsMeta.some((m) => m.path === f.path)
+    );
+    const verifiedTestCommands = extractVerifiedTestCommands(manifestContents);
+
+    // Find contributing file content
+    const contributingDocContent = contributingDocMeta
+      ? fetchedFiles.find((f) => f.path === contributingDocMeta.path) || null
+      : null;
+
+    // Filter candidate source files
+    const candidateFileContents = fetchedFiles.filter(
+      (f) =>
+        candidatePaths.includes(f.path) &&
+        f.path !== contributingDocMeta?.path
     );
 
-    // 6. Prune Conversation History to Max 6 Turns
-    const prunedHistory = pruneChatHistory(messages || [], 6);
+    // 5. Build Bounded Context Bundle
+    const contextBundle = buildContributorContext(
+      overview,
+      issue,
+      intelligence,
+      candidateFileContents,
+      verifiedTestCommands,
+      contributingDocContent
+    );
 
-    // Append current user message if not already present
-    const updatedMessages: ChatMessage[] = [
-      ...prunedHistory,
-      {
-        id: `msg-${Date.now()}`,
-        role: "user",
-        content: query,
-      },
-    ];
-
-    // 7. Stream AI Content via provider-agnostic gateway
+    // 6. Stream AI Completion via provider-agnostic gateway
     const stream = await streamAiCompletion({
-      systemPrompt: REPO_CHAT_SYSTEM_PROMPT,
+      systemPrompt: CONTRIBUTOR_ANALYSIS_SYSTEM_PROMPT,
       contextText: contextBundle.systemContextText,
-      messages: updatedMessages,
+      userPrompt: contextBundle.userPromptText,
     });
 
     return new Response(stream, {
       headers: {
         "Content-Type": "text/plain; charset=utf-8",
         "X-Supplied-Files": JSON.stringify(contextBundle.suppliedFiles),
+        "X-Localized-Candidates": JSON.stringify(candidateRankings),
+        "X-Verified-Commands": JSON.stringify(verifiedTestCommands),
       },
     });
   } catch (error) {

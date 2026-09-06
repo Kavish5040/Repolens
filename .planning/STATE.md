@@ -2,8 +2,8 @@
 
 ## Current Position
 - **Milestone:** Milestone 1 (Production GitHub Intelligence & Exploration Platform)
-- **Active Phase:** Phase 4 Complete ➔ Ready for Phase 5: Open Source Contributor Mode (Pillar D)
-- **Phase 4 Status:** Complete (Bounded Context Packager with 24k token hard ceiling, Google Gemini streaming client with 25s timeout and abort controller, Streaming AI Repository Summary, Conversational Ask RepoLens Chat with validated clickable file citations, explicit uncertainty guardrails, missing key handling, and 36 unit tests passing).
+- **Active Phase:** Phase 5 Complete ➔ Ready for Phase 6: Hardening, Rate-Limit PAT Override & Deployment
+- **Phase 5 Status:** Complete (GitHub Issues API integration, transparent Contribution Readiness scoring 0–100, evidence-based difficulty badges, ranked candidate file localization, manifest-verified test runner commands, streaming AI guidance, and interactive Contributor Mode dashboard tab).
 
 ## Key Architectural Decisions
 1. **Full Real-World Integration:** Zero mock data. Real GitHub REST & Git Trees APIs with robust error/rate-limit handling.

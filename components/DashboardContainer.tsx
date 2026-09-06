@@ -9,18 +9,34 @@ import { RepoOverviewCard } from "@/components/overview/RepoOverviewCard.tsx";
 import { RepoExplorer } from "@/components/explorer/RepoExplorer.tsx";
 import { IntelligenceDashboard } from "@/components/intelligence/IntelligenceDashboard.tsx";
 import { AiDashboard } from "@/components/ai/AiDashboard.tsx";
+import { ContributorDashboard } from "@/components/contributor/ContributorDashboard.tsx";
 import { LoadingSkeleton } from "@/components/states/LoadingSkeleton.tsx";
 import { ErrorBanner } from "@/components/states/ErrorBanner.tsx";
 import { RateLimitBanner } from "@/components/states/RateLimitBanner.tsx";
 import { EmptyState } from "@/components/states/EmptyState.tsx";
 import type { RepoOverview, RateLimitInfo, ApiResponse } from "@/lib/github/types.ts";
+import { loadPat } from "@/lib/pat/storage.ts";
 
-type ActiveTab = "overview" | "explorer" | "intelligence" | "ai";
+type ActiveTab = "overview" | "intelligence" | "ai" | "contributor" | "explorer";
+
+/**
+ * Returns the current PAT from localStorage and a setter that re-reads it.
+ * Safe to call during SSR — localStorage access is guarded.
+ */
+function usePat() {
+  const [pat, setPat] = useState<string | null>(null);
+  useEffect(() => {
+    setPat(loadPat());
+  }, []);
+  const refresh = useCallback((next: string | null) => setPat(next), []);
+  return { pat, refresh };
+}
 
 export function DashboardContainer() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { pat, refresh: refreshPat } = usePat();
 
   const repoParam = searchParams.get("repo") || "";
   const tabParam = (searchParams.get("tab") as ActiveTab) || "overview";
@@ -51,7 +67,15 @@ export function DashboardContainer() {
     setErrorState(null);
 
     try {
-      const res = await fetch(`/api/repo/overview?repo=${encodeURIComponent(targetRepo)}`);
+      const headers: HeadersInit = {};
+      // Read latest PAT at call time (not stale closure)
+      const currentPat = loadPat();
+      if (currentPat) headers["x-github-token"] = currentPat;
+
+      const res = await fetch(
+        `/api/repo/overview?repo=${encodeURIComponent(targetRepo)}`,
+        { headers }
+      );
       const body: ApiResponse<RepoOverview> = await res.json();
 
       if (body.success) {
@@ -140,7 +164,7 @@ export function DashboardContainer() {
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       {/* App Header */}
-      <Header rateLimit={rateLimit} />
+      <Header rateLimit={rateLimit} onPatChange={refreshPat} />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 flex flex-col gap-8">
@@ -234,6 +258,24 @@ export function DashboardContainer() {
 
                   <button
                     type="button"
+                    onClick={() => handleTabChange("contributor")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                      activeTab === "contributor"
+                        ? "bg-emerald-600 text-white shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>Contributor Mode</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold">
+                      Pillar D
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleTabChange("explorer")}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                       activeTab === "explorer"
@@ -263,6 +305,7 @@ export function DashboardContainer() {
                   defaultBranch={overview.defaultBranch}
                   onNavigateToFile={handleNavigateFromIntelligence}
                   onNavigateToFolder={handleNavigateFromIntelligence}
+                  pat={pat}
                 />
               )}
 
@@ -274,16 +317,28 @@ export function DashboardContainer() {
                   detectedTechnologies={overview.languages.map((l) => l.name)}
                   activeFilePath={activeFilePath}
                   onSelectFile={handleNavigateFromIntelligence}
+                  pat={pat}
                 />
               )}
 
-              {/* Tab 4: File Explorer & Key Documents */}
+              {/* Tab 4: Contributor Mode (Pillar D) */}
+              {activeTab === "contributor" && (
+                <ContributorDashboard
+                  repoFullName={overview.fullName}
+                  defaultBranch={overview.defaultBranch}
+                  onSelectFile={handleNavigateFromIntelligence}
+                  pat={pat}
+                />
+              )}
+
+              {/* Tab 5: File Explorer & Key Documents */}
               {activeTab === "explorer" && (
                 <RepoExplorer
                   repoFullName={overview.fullName}
                   defaultBranch={overview.defaultBranch}
                   initialFilePath={activeFilePath}
                   onFileSelect={handleFileSelect}
+                  pat={pat}
                 />
               )}
             </div>

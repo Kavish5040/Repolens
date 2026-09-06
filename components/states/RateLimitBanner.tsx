@@ -69,7 +69,10 @@ export function RateLimitBanner({
           <div className="mt-3 p-3 rounded-xl bg-amber-100/60 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200 flex flex-col gap-1">
             <p className="font-semibold">💡 How to get 5,000 requests/hour:</p>
             <p>
-              Add a GitHub Personal Access Token (PAT) to your server environment (<code>GITHUB_TOKEN=...</code> in <code>.env.local</code>) for higher limits.
+              <strong>Option A (browser):</strong> Click <strong>&ldquo;Add token&rdquo;</strong> in the header and enter your GitHub Personal Access Token with <code>public_repo</code> scope.
+            </p>
+            <p>
+              <strong>Option B (server):</strong> Set <code>GITHUB_TOKEN=...</code> in <code>.env.local</code> (for self-hosted deployments).
             </p>
           </div>
 

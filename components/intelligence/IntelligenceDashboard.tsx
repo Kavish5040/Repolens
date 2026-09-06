@@ -9,12 +9,14 @@ import { EntryPointsList } from "./EntryPointsList.tsx";
 import { DirectoryTopologyGrid } from "./DirectoryTopologyGrid.tsx";
 import type { RepoIntelligenceData } from "@/lib/github/intelligence-types.ts";
 import type { ApiResponse } from "@/lib/github/types.ts";
+import { loadPat } from "@/lib/pat/storage.ts";
 
 interface IntelligenceDashboardProps {
   repoFullName: string;
   defaultBranch: string;
   onNavigateToFile?: (path: string) => void;
   onNavigateToFolder?: (path: string) => void;
+  pat?: string | null;
 }
 
 export function IntelligenceDashboard({
@@ -32,8 +34,12 @@ export function IntelligenceDashboard({
     setError(null);
 
     try {
+      const headers: HeadersInit = {};
+      const currentPat = loadPat();
+      if (currentPat) headers["x-github-token"] = currentPat;
       const res = await fetch(
-        `/api/repo/intelligence?repo=${encodeURIComponent(repoFullName)}&branch=${encodeURIComponent(defaultBranch)}`
+        `/api/repo/intelligence?repo=${encodeURIComponent(repoFullName)}&branch=${encodeURIComponent(defaultBranch)}`,
+        { headers }
       );
       const data: ApiResponse<RepoIntelligenceData> = await res.json();
 
