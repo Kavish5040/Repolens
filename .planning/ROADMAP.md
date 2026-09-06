@@ -13,14 +13,14 @@
 
 ---
 
-### [ ] Phase 2: Live File Tree Explorer & Key Documents Hub (Pillar A)
+### [x] Phase 2: Live File Tree Explorer & Key Documents Hub (Pillar A)
 *Deliverable: Interactive, searchable file tree backed by real GitHub Git Trees API with automated key document detection and formatted document/code inspection.*
-- **2.1 Tree & File Content Domain Models:** Strict TypeScript interfaces for `GitTreeItemDto`, `TreeNode` (nested hierarchy with sizes/child counts), `FileContentData`, and `KeyDocument` definitions.
-- **2.2 Git Trees & File Content API Client:** Server-side fetchers for `/git/trees/{sha}?recursive=1` and `/contents/{path}` with base64 decoding, file type detection, and size guardrails.
-- **2.3 Hierarchy Builder & Key Document Detector:** Pure algorithms to transform flat Git tree items into a sorted nested tree and identify critical onboarding/manifest files (`README`, `CONTRIBUTING`, `LICENSE`, `package.json`, `Cargo.toml`).
-- **2.4 Explorer API Route Handlers:** Server endpoints `GET /api/repo/tree` and `GET /api/repo/content` with ISR caching and rate-limit telemetry.
-- **2.5 Interactive File Tree UI:** Searchable, collapsible directory tree with real-time path filtering, file-type icons, size badges, and breadcrumbs.
-- **2.6 Document & Code Viewer UI:** Split-pane layout with 1-click Quick Access tabs for Key Documents (`README`, `CONTRIBUTING`), formatted Markdown rendering, and syntax-highlighted code inspection.
+- [x] **2.1 Tree & File Content Domain Models:** Strict TypeScript interfaces for `GitTreeItemDto`, `TreeNode` (nested hierarchy with sizes/child counts), `FileContentData`, and `KeyDocument` definitions.
+- [x] **2.2 Git Trees & File Content API Client:** Server-side fetchers for `/git/trees/{sha}?recursive=1` and `/contents/{path}` with base64 decoding, file type detection, and size guardrails.
+- [x] **2.3 Hierarchy Builder & Key Document Detector:** Pure algorithms to transform flat Git tree items into a sorted nested tree and identify critical onboarding/manifest files (`README`, `CONTRIBUTING`, `LICENSE`, `package.json`, `Cargo.toml`).
+- [x] **2.4 Explorer API Route Handlers:** Server endpoints `GET /api/repo/tree` and `GET /api/repo/content` with ISR caching and rate-limit telemetry.
+- [x] **2.5 Interactive File Tree UI:** Searchable, collapsible directory tree with real-time path filtering, file-type icons, size badges, and breadcrumbs.
+- [x] **2.6 Document & Code Viewer UI:** Split-pane layout with 1-click Quick Access tabs for Key Documents (`README`, `CONTRIBUTING`), formatted Markdown rendering, and syntax-highlighted code inspection.
 
 ---
 

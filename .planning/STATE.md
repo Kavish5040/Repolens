@@ -2,9 +2,8 @@
 
 ## Current Position
 - **Milestone:** Milestone 1 (Production GitHub Intelligence & Exploration Platform)
-- **Active Phase:** Ready for Phase 2: Live File Tree Explorer & Key Documents Hub (Pillar A)
-- **Phase 1 Status:** Complete (URL parser, GitHub API client, overview API route, and polished overview dashboard built, tested, and verified).
-- **Scope Alignment:** Planning documents fully updated to capture the 4 Product Pillars (Explorer, Intelligence, Ask RepoLens, Contributor Mode).
+- **Active Phase:** Phase 2 Complete ➔ Ready for Phase 3: Repository Intelligence & "Where Should I Start?" Guide (Pillar B)
+- **Phase 2 Status:** Complete (Recursive Git tree, flat-to-nested tree transformation, Key Documents auto-detector, safe Base64 file decoding, split-pane FileTree UI, Markdown/Code viewer, and tab switcher built and verified).
 
 ## Key Architectural Decisions
 1. **Full Real-World Integration:** Zero mock data. Real GitHub REST & Git Trees APIs with robust error/rate-limit handling.
