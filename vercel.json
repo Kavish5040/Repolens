@@ -1,12 +1,7 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "env": [
-    "GITHUB_TOKEN",
-    "OMNIROUTE_BASE_URL",
-    "OMNIROUTE_API_KEY",
-    "OMNIROUTE_MODEL"
-  ]
+  "installCommand": "npm install"
 }
