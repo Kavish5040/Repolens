@@ -32,11 +32,11 @@
 
 ---
 
-### [ ] Phase 4: AI Intelligence & "Ask RepoLens" Grounded Q&A (Pillar C)
-*Deliverable: AI-powered codebase summary and interactive natural-language Q&A grounded in repository files.*
-- **4.1 Context Packager:** Server-side engine to build token-efficient repository context from README, tree structure, package manifests, and entry files.
-- **4.2 AI Repository Summary:** Streaming AI-generated summary covering project purpose, architectural design patterns, code quality, and engineering observations.
-- **4.3 "Ask RepoLens" Interactive Chat:** Conversational interface with streaming responses and file/line citation evidence.
+### [x] Phase 4: AI Intelligence & "Ask RepoLens" Grounded Q&A (Pillar C)
+*Deliverable: Bounded AI-powered codebase summary and interactive natural-language Q&A grounded in repository files with validated citations.*
+- [x] **4.1 Context Packager & Hard Budgets:** Bounded context packager enforcing hard ceilings (24k tokens, max 10 files, 4k chars/file excerpt, 6-turn history cap) with distinct Summary vs. Chat context strategies.
+- [x] **4.2 AI Repository Summary:** Streaming AI-generated summary covering project purpose, system design, key subsystems, tooling observations, and engineering caveats.
+- [x] **4.3 "Ask RepoLens" Interactive Chat & Citations:** Conversational interface with streaming responses, suggested questions, explicit uncertainty enforcement, and citation validation (`[file:path]`) with 1-click navigation to the File Explorer.
 
 ---
 

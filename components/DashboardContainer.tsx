@@ -8,13 +8,14 @@ import { QuickTryRepos } from "@/components/QuickTryRepos.tsx";
 import { RepoOverviewCard } from "@/components/overview/RepoOverviewCard.tsx";
 import { RepoExplorer } from "@/components/explorer/RepoExplorer.tsx";
 import { IntelligenceDashboard } from "@/components/intelligence/IntelligenceDashboard.tsx";
+import { AiDashboard } from "@/components/ai/AiDashboard.tsx";
 import { LoadingSkeleton } from "@/components/states/LoadingSkeleton.tsx";
 import { ErrorBanner } from "@/components/states/ErrorBanner.tsx";
 import { RateLimitBanner } from "@/components/states/RateLimitBanner.tsx";
 import { EmptyState } from "@/components/states/EmptyState.tsx";
 import type { RepoOverview, RateLimitInfo, ApiResponse } from "@/lib/github/types.ts";
 
-type ActiveTab = "overview" | "explorer" | "intelligence";
+type ActiveTab = "overview" | "explorer" | "intelligence" | "ai";
 
 export function DashboardContainer() {
   const searchParams = useSearchParams();
@@ -215,6 +216,24 @@ export function DashboardContainer() {
 
                   <button
                     type="button"
+                    onClick={() => handleTabChange("ai")}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
+                      activeTab === "ai"
+                        ? "bg-blue-600 text-white shadow-sm"
+                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    <span>Ask RepoLens (AI)</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold">
+                      Pillar C
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => handleTabChange("explorer")}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
                       activeTab === "explorer"
@@ -247,7 +266,18 @@ export function DashboardContainer() {
                 />
               )}
 
-              {/* Tab 3: File Explorer & Key Documents */}
+              {/* Tab 3: Ask RepoLens (AI Q&A & Summary) */}
+              {activeTab === "ai" && (
+                <AiDashboard
+                  repoFullName={overview.fullName}
+                  defaultBranch={overview.defaultBranch}
+                  detectedTechnologies={overview.languages.map((l) => l.name)}
+                  activeFilePath={activeFilePath}
+                  onSelectFile={handleNavigateFromIntelligence}
+                />
+              )}
+
+              {/* Tab 4: File Explorer & Key Documents */}
               {activeTab === "explorer" && (
                 <RepoExplorer
                   repoFullName={overview.fullName}
