@@ -49,8 +49,8 @@
 
 ---
 
-### [ ] Phase 6: Hardening, Rate-Limit PAT Override & Deployment
+### [x] Phase 6: Hardening, Rate-Limit PAT Override & Deployment
 *Deliverable: Production-ready tool deployed on Vercel with optional client PAT support.*
-- **6.1 User PAT Setting:** Optional client-provided GitHub Personal Access Token (stored only in browser localStorage) to grant 5,000 req/hr rate limits for heavy users.
-- **6.2 End-to-End Verification:** Comprehensive testing of all error boundaries, responsiveness, and performance.
-- **6.3 Production Build & Vercel Prep:** Lint verification, TypeScript check, and deployment configuration.
+- [x] **6.1 User PAT Setting:** Optional client-provided GitHub Personal Access Token (stored only in browser localStorage, never sent to AI service) with format validation, masked display, security disclosure, and clear INVALID_PAT error handling.
+- [x] **6.2 End-to-End Verification:** All 7 API routes handle 401 → INVALID_PAT. All error states (NOT_FOUND, RATE_LIMITED, INVALID_PAT, NETWORK_ERROR) have dedicated UI variants. ErrorBanner and RateLimitBanner updated with PAT-aware messaging.
+- [x] **6.3 Production Build & Vercel Prep:** 52/52 tests pass, tsc --noEmit clean, npm run build succeeds. vercel.json created. .env.example improved. README fully rewritten with setup, deployment, and security documentation. poweredByHeader: false in next.config.ts.
