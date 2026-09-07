@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import type {
   TreeNode,
   KeyDocument,
@@ -29,6 +30,7 @@ export function RepoExplorer({
   initialFilePath,
   onFileSelect,
 }: RepoExplorerProps) {
+  const shouldReduceMotion = useReducedMotion();
   // Tree state
   const [treeData, setTreeData] = useState<RepoTreeData | null>(null);
   const [isTreeLoading, setIsTreeLoading] = useState(true);
@@ -217,15 +219,26 @@ export function RepoExplorer({
               />
             </div>
           ) : fileContent ? (
-            fileContent.isMarkdown ? (
-              <DocumentViewer
-                content={fileContent.content}
-                fileName={fileContent.name}
-                path={fileContent.path}
-              />
-            ) : (
-              <CodeViewer file={fileContent} />
-            )
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={fileContent.path}
+                initial={shouldReduceMotion ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={shouldReduceMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="w-full h-full"
+              >
+                {fileContent.isMarkdown ? (
+                  <DocumentViewer
+                    content={fileContent.content}
+                    fileName={fileContent.name}
+                    path={fileContent.path}
+                  />
+                ) : (
+                  <CodeViewer file={fileContent} />
+                )}
+              </motion.div>
+            </AnimatePresence>
           ) : (
             <div className="w-full h-full bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl flex flex-col items-center justify-center text-center p-8 text-zinc-400 dark:text-zinc-500">
               <svg className="w-12 h-12 mb-3 text-zinc-300 dark:text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import type { OnboardingStep } from "@/lib/github/intelligence-types.ts";
 
 interface WhereToStartCardProps {
@@ -56,10 +57,33 @@ const CATEGORY_STYLES: Record<
   },
 };
 
+const listContainerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const stepVariants: Variants = {
+  hidden: { opacity: 0, x: -14, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 380, damping: 27 },
+  },
+};
+
 export function WhereToStartCard({
   steps,
   onNavigateToTarget,
 }: WhereToStartCardProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   if (!steps || steps.length === 0) {
     return (
       <div className="p-8 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800">
@@ -73,7 +97,7 @@ export function WhereToStartCard({
       {/* Header */}
       <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/40">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
+          <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm shadow-xs">
             🎯
           </div>
           <div>
@@ -81,90 +105,120 @@ export function WhereToStartCard({
               Where Should I Start?
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Deterministic, evidence-backed onboarding sequence for new developers
+              Deterministic, evidence-backed onboarding pathway for developers
             </p>
           </div>
         </div>
         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">
-          {steps.length} Recommended Steps
+          {steps.length} Sequenced Steps
         </span>
       </div>
 
-      {/* Steps List */}
-      <div className="p-6 flex flex-col gap-4">
-        {steps.map((step) => {
-          const catStyle = CATEGORY_STYLES[step.category] || CATEGORY_STYLES.overview;
+      {/* Steps Visual Journey */}
+      <div className="relative p-6">
+        {/* Animated Connecting Line */}
+        <motion.div
+          initial={shouldReduceMotion ? false : { scaleY: 0 }}
+          animate={{ scaleY: 1 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          style={{ originY: 0 }}
+          className="absolute left-[38px] sm:left-[40px] top-10 bottom-10 w-0.5 bg-gradient-to-b from-blue-500 via-indigo-500 to-cyan-400/50 hidden sm:block pointer-events-none rounded-full"
+        />
 
-          return (
-            <div
-              key={step.stepNumber}
-              className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/30 dark:bg-zinc-950/20 hover:border-blue-500/40 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-4 group"
-            >
-              {/* Left Details */}
-              <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                {/* Step Number Circle */}
-                <div className="w-7 h-7 rounded-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-sm">
-                  {step.stepNumber}
-                </div>
+        {/* Steps List */}
+        <motion.div
+          variants={shouldReduceMotion ? undefined : listContainerVariants}
+          initial={shouldReduceMotion ? false : "hidden"}
+          animate="visible"
+          className="flex flex-col gap-4 relative z-10"
+        >
+          {steps.map((step) => {
+            const catStyle = CATEGORY_STYLES[step.category] || CATEGORY_STYLES.overview;
+            const formattedStepNum = String(step.stepNumber).padStart(2, "0");
 
-                <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-bold text-sm text-zinc-900 dark:text-zinc-100">
-                      {step.title}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
-                    >
-                      {catStyle.label}
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono">
-                      Target: <code>{step.targetPath}</code>
-                    </span>
+            return (
+              <motion.div
+                key={step.stepNumber}
+                variants={shouldReduceMotion ? undefined : stepVariants}
+                whileHover={shouldReduceMotion ? undefined : { y: -3, scale: 1.008 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                onClick={() => onNavigateToTarget(step.targetPath)}
+                className="p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/40 dark:bg-zinc-950/20 hover:bg-white dark:hover:bg-zinc-900/90 hover:border-blue-500/50 dark:hover:border-blue-500/40 hover:shadow-lg hover:shadow-blue-500/5 transition-all flex flex-col sm:flex-row sm:items-start justify-between gap-4 group cursor-pointer"
+                title={`Click to inspect ${step.targetPath}`}
+              >
+                {/* Left Details */}
+                <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                  {/* Step Number Circle with Glow Ring */}
+                  <div className="relative flex-shrink-0">
+                    <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center font-mono font-bold text-xs shadow-sm ring-2 ring-blue-500/20 group-hover:ring-blue-500/60 group-hover:scale-105 transition-all">
+                      {formattedStepNum}
+                    </div>
                   </div>
 
-                  {/* Reason */}
-                  <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
-                    {step.reason}
-                  </p>
-
-                  {/* Key Points to Inspect */}
-                  {step.keyPointsToInspect.length > 0 && (
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400 pt-1">
-                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">Focus on:</span>
-                      {step.keyPointsToInspect.map((point, idx) => (
-                        <span key={idx} className="flex items-center gap-1">
-                          <span className="text-blue-500">&bull;</span>
-                          {point}
-                        </span>
-                      ))}
+                  <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-zinc-900 dark:text-zinc-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        {step.title}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${catStyle.bg} ${catStyle.text} ${catStyle.border}`}
+                      >
+                        {catStyle.label}
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-mono flex items-center gap-1">
+                        <span className="text-zinc-400">Target:</span>
+                        <code className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/70 dark:border-zinc-700/70 group-hover:border-blue-400 dark:group-hover:border-blue-600 transition-colors">
+                          {step.targetPath}
+                        </code>
+                      </span>
                     </div>
-                  )}
 
-                  {/* Observable Evidence */}
-                  {step.evidence.length > 0 && (
-                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500 italic mt-0.5">
-                      Signal: {step.evidence.join("; ")}
+                    {/* Reason */}
+                    <p className="text-xs text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                      {step.reason}
                     </p>
-                  )}
-                </div>
-              </div>
 
-              {/* Right Action: 1-Click Navigate */}
-              <div className="self-end sm:self-center flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => onNavigateToTarget(step.targetPath)}
-                  className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 hover:bg-blue-600 text-zinc-800 hover:text-white dark:bg-zinc-800 dark:hover:bg-blue-600 dark:text-zinc-200 dark:hover:text-white transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  <span>Inspect {step.targetType === "directory" ? "Folder" : "File"}</span>
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          );
-        })}
+                    {/* Key Points to Inspect */}
+                    {step.keyPointsToInspect.length > 0 && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-zinc-500 dark:text-zinc-400 pt-1">
+                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">Focus on:</span>
+                        {step.keyPointsToInspect.map((point, idx) => (
+                          <span key={idx} className="flex items-center gap-1">
+                            <span className="text-blue-500">&bull;</span>
+                            {point}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Observable Evidence */}
+                    {step.evidence.length > 0 && (
+                      <p className="text-[10px] text-zinc-400 dark:text-zinc-500 italic mt-0.5">
+                        Signal: {step.evidence.join("; ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Action: 1-Click Navigate */}
+                <div className="self-end sm:self-center flex-shrink-0">
+                  <div className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-zinc-100 group-hover:bg-blue-600 text-zinc-800 group-hover:text-white dark:bg-zinc-800 dark:group-hover:bg-blue-600 dark:text-zinc-200 dark:group-hover:text-white transition-all shadow-xs flex items-center gap-1.5">
+                    <span>Inspect {step.targetType === "directory" ? "Folder" : "File"}</span>
+                    <svg
+                      className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </motion.div>
       </div>
     </div>
   );

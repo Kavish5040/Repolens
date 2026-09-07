@@ -1,8 +1,18 @@
+"use client";
+
 import React from "react";
+import { motion, useReducedMotion } from "motion/react";
 
 export function LoadingSkeleton() {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
-    <div className="w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden animate-pulse">
+    <motion.div
+      initial={shouldReduceMotion ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-xl overflow-hidden animate-pulse"
+    >
       {/* Header Skeleton */}
       <div className="p-6 sm:p-8 border-b border-zinc-100 dark:border-zinc-800 flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl bg-zinc-200 dark:bg-zinc-800 flex-shrink-0" />
@@ -37,6 +47,6 @@ export function LoadingSkeleton() {
         </div>
         <div className="lg:w-80 h-28 rounded-xl bg-zinc-200/60 dark:bg-zinc-800/60" />
       </div>
-    </div>
+    </motion.div>
   );
 }

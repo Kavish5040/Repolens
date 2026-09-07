@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback, useTransition } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
+import { AmbientSpotlight } from "@/components/ui/AmbientSpotlight.tsx";
 import { Header } from "@/components/Header.tsx";
 import { RepoSearchInput } from "@/components/RepoSearchInput.tsx";
 import { QuickTryRepos } from "@/components/QuickTryRepos.tsx";
@@ -14,10 +16,81 @@ import { LoadingSkeleton } from "@/components/states/LoadingSkeleton.tsx";
 import { ErrorBanner } from "@/components/states/ErrorBanner.tsx";
 import { RateLimitBanner } from "@/components/states/RateLimitBanner.tsx";
 import { EmptyState } from "@/components/states/EmptyState.tsx";
+import { FerrofluidBackground } from "@/components/landing/FerrofluidBackground.tsx";
+import { RepoLensHero } from "@/components/landing/RepoLensHero.tsx";
 import type { RepoOverview, RateLimitInfo, ApiResponse } from "@/lib/github/types.ts";
 import { loadPat } from "@/lib/pat/storage.ts";
 
 type ActiveTab = "overview" | "intelligence" | "ai" | "contributor" | "explorer";
+
+interface TabItem {
+  id: ActiveTab;
+  label: string;
+  icon: React.ReactNode;
+  badge?: { text: string; className: string };
+  isEmerald?: boolean;
+}
+
+const TABS: TabItem[] = [
+  {
+    id: "overview",
+    label: "Overview",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+    ),
+  },
+  {
+    id: "intelligence",
+    label: "Repository Intelligence",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    badge: {
+      text: "Pillar B",
+      className: "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300",
+    },
+  },
+  {
+    id: "ai",
+    label: "Ask RepoLens (AI)",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+      </svg>
+    ),
+    badge: {
+      text: "Pillar C",
+      className: "bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300",
+    },
+  },
+  {
+    id: "contributor",
+    label: "Contributor Mode",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    badge: {
+      text: "Pillar D",
+      className: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300",
+    },
+    isEmerald: true,
+  },
+  {
+    id: "explorer",
+    label: "File Explorer & Docs",
+    icon: (
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+      </svg>
+    ),
+  },
+];
 
 /**
  * Returns the current PAT from localStorage and a setter that re-reads it.
@@ -35,6 +108,7 @@ function usePat() {
 export function DashboardContainer() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const shouldReduceMotion = useReducedMotion();
   const [isPending, startTransition] = useTransition();
   const { pat, refresh: refreshPat } = usePat();
 
@@ -161,192 +235,218 @@ export function DashboardContainer() {
     }
   };
 
+  const isLandingState = !overview && !isLoading && !errorState;
+
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+    <div className="relative min-h-screen flex flex-col bg-zinc-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden">
+      {/* Ambient Radial Spotlight */}
+      <AmbientSpotlight />
+
+      {/* Ferrofluid Ambient Intelligence Background - Landing State Only */}
+      <AnimatePresence>
+        {isLandingState && (
+          <motion.div
+            key="landing-ferrofluid-layer"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35, ease: "easeInOut" }}
+            className="absolute inset-0 pointer-events-none overflow-hidden z-0"
+          >
+            <FerrofluidBackground />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* App Header */}
       <Header rateLimit={rateLimit} onPatChange={refreshPat} />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 flex flex-col gap-8">
-        {/* Search Hero Area */}
-        <section className="flex flex-col gap-3 text-center pt-2 sm:pt-4">
-          <RepoSearchInput
-            initialValue={currentRepo}
-            isLoading={isLoading || isPending}
-            onSearch={handleSelectRepo}
-          />
-          <QuickTryRepos
-            onSelect={handleSelectRepo}
-            currentRepo={currentRepo}
-          />
-        </section>
-
-        {/* Dynamic Display Area */}
-        <section className="w-full flex flex-col gap-6">
-          {isLoading ? (
-            <LoadingSkeleton />
-          ) : errorState ? (
-            errorState.code === "RATE_LIMITED" && errorState.resetAt ? (
-              <RateLimitBanner
-                resetAt={errorState.resetAt}
-                limit={errorState.limit}
-                remaining={errorState.remaining}
-                onRetry={() => fetchRepoData(currentRepo)}
+      <motion.main
+        initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="relative z-10 flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 flex flex-col gap-8"
+      >
+        <AnimatePresence mode="wait">
+          {isLandingState ? (
+            <motion.div
+              key="landing-hero-view"
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+              className="w-full"
+            >
+              <RepoLensHero
+                currentRepo={currentRepo}
+                isLoading={isLoading || isPending}
+                onSearch={handleSelectRepo}
               />
-            ) : (
-              <ErrorBanner
-                code={errorState.code}
-                message={errorState.message}
-                onRetry={() => fetchRepoData(currentRepo)}
-              />
-            )
-          ) : overview ? (
-            <div className="flex flex-col gap-6">
-              {/* Tab Navigation Controls */}
-              <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("overview")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                      activeTab === "overview"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    <span>Overview</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("intelligence")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                      activeTab === "intelligence"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>Repository Intelligence</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold">
-                      Pillar B
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("ai")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                      activeTab === "ai"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    <span>Ask RepoLens (AI)</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-purple-100 dark:bg-purple-900/60 text-purple-700 dark:text-purple-300 font-bold">
-                      Pillar C
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("contributor")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                      activeTab === "contributor"
-                        ? "bg-emerald-600 text-white shadow-sm"
-                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span>Contributor Mode</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 font-bold">
-                      Pillar D
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleTabChange("explorer")}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all ${
-                      activeTab === "explorer"
-                        ? "bg-blue-600 text-white shadow-sm"
-                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                    <span>File Explorer & Docs</span>
-                  </button>
-                </div>
-
-                <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono hidden sm:inline">
-                  branch: {overview.defaultBranch}
-                </span>
-              </div>
-
-              {/* Tab 1: Overview Dashboard */}
-              {activeTab === "overview" && <RepoOverviewCard repo={overview} />}
-
-              {/* Tab 2: Repository Intelligence & Where Should I Start? */}
-              {activeTab === "intelligence" && (
-                <IntelligenceDashboard
-                  repoFullName={overview.fullName}
-                  defaultBranch={overview.defaultBranch}
-                  onNavigateToFile={handleNavigateFromIntelligence}
-                  onNavigateToFolder={handleNavigateFromIntelligence}
-                  pat={pat}
-                />
-              )}
-
-              {/* Tab 3: Ask RepoLens (AI Q&A & Summary) */}
-              {activeTab === "ai" && (
-                <AiDashboard
-                  repoFullName={overview.fullName}
-                  defaultBranch={overview.defaultBranch}
-                  detectedTechnologies={overview.languages.map((l) => l.name)}
-                  activeFilePath={activeFilePath}
-                  onSelectFile={handleNavigateFromIntelligence}
-                  pat={pat}
-                />
-              )}
-
-              {/* Tab 4: Contributor Mode (Pillar D) */}
-              {activeTab === "contributor" && (
-                <ContributorDashboard
-                  repoFullName={overview.fullName}
-                  defaultBranch={overview.defaultBranch}
-                  onSelectFile={handleNavigateFromIntelligence}
-                  pat={pat}
-                />
-              )}
-
-              {/* Tab 5: File Explorer & Key Documents */}
-              {activeTab === "explorer" && (
-                <RepoExplorer
-                  repoFullName={overview.fullName}
-                  defaultBranch={overview.defaultBranch}
-                  initialFilePath={activeFilePath}
-                  onFileSelect={handleFileSelect}
-                  pat={pat}
-                />
-              )}
-            </div>
+            </motion.div>
           ) : (
-            <EmptyState />
+            <motion.div
+              key="active-repo-view"
+              initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={shouldReduceMotion ? undefined : { opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="w-full flex flex-col gap-8"
+            >
+              {/* Search Hero Area */}
+              <section className="flex flex-col gap-3 text-center pt-2 sm:pt-4">
+                <RepoSearchInput
+                  initialValue={currentRepo}
+                  isLoading={isLoading || isPending}
+                  onSearch={handleSelectRepo}
+                />
+                <QuickTryRepos
+                  onSelect={handleSelectRepo}
+                  currentRepo={currentRepo}
+                />
+              </section>
+
+              {/* Dynamic Display Area */}
+              <section className="w-full flex flex-col gap-6">
+                {isLoading ? (
+                  <LoadingSkeleton />
+                ) : errorState ? (
+                  errorState.code === "RATE_LIMITED" && errorState.resetAt ? (
+                    <RateLimitBanner
+                      resetAt={errorState.resetAt}
+                      limit={errorState.limit}
+                      remaining={errorState.remaining}
+                      onRetry={() => fetchRepoData(currentRepo)}
+                    />
+                  ) : (
+                    <ErrorBanner
+                      code={errorState.code}
+                      message={errorState.message}
+                      onRetry={() => fetchRepoData(currentRepo)}
+                    />
+                  )
+                ) : overview ? (
+                  <div className="flex flex-col gap-6">
+                    {/* Tab Navigation Controls */}
+                    <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {TABS.map((tab) => {
+                          const isActive = activeTab === tab.id;
+                          return (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => handleTabChange(tab.id)}
+                              className={`relative flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-colors ${
+                                isActive
+                                  ? "text-white"
+                                  : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                              }`}
+                            >
+                              {isActive && (
+                                <motion.div
+                                  layoutId="activeTabIndicator"
+                                  className={`absolute inset-0 rounded-xl shadow-md ${
+                                    tab.isEmerald ? "bg-emerald-600 shadow-emerald-600/20" : "bg-blue-600 shadow-blue-600/25"
+                                  }`}
+                                  transition={
+                                    shouldReduceMotion
+                                      ? { duration: 0 }
+                                      : { type: "spring", stiffness: 450, damping: 35 }
+                                  }
+                                />
+                              )}
+                              <span className="relative z-10 flex items-center gap-2">
+                                {tab.icon}
+                                <span>{tab.label}</span>
+                                {tab.badge && (
+                                  <span
+                                    className={`text-[10px] px-1.5 py-0.2 rounded-md font-bold ${
+                                      isActive
+                                        ? "bg-white/20 text-white"
+                                        : tab.badge.className
+                                    }`}
+                                  >
+                                    {tab.badge.text}
+                                  </span>
+                                )}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono hidden sm:inline">
+                        branch: {overview.defaultBranch}
+                      </span>
+                    </div>
+
+                    {/* Tab Content with smooth responsive transition */}
+                    <AnimatePresence mode="wait" initial={false}>
+                      <motion.div
+                        key={activeTab}
+                        initial={shouldReduceMotion ? false : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={shouldReduceMotion ? undefined : { opacity: 0, y: -6 }}
+                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                      >
+                        {/* Tab 1: Overview Dashboard */}
+                        {activeTab === "overview" && <RepoOverviewCard repo={overview} />}
+
+                        {/* Tab 2: Repository Intelligence & Where Should I Start? */}
+                        {activeTab === "intelligence" && (
+                          <IntelligenceDashboard
+                            repoFullName={overview.fullName}
+                            defaultBranch={overview.defaultBranch}
+                            onNavigateToFile={handleNavigateFromIntelligence}
+                            onNavigateToFolder={handleNavigateFromIntelligence}
+                            pat={pat}
+                          />
+                        )}
+
+                        {/* Tab 3: Ask RepoLens (AI Q&A & Summary) */}
+                        {activeTab === "ai" && (
+                          <AiDashboard
+                            repoFullName={overview.fullName}
+                            defaultBranch={overview.defaultBranch}
+                            detectedTechnologies={overview.languages.map((l) => l.name)}
+                            activeFilePath={activeFilePath}
+                            onSelectFile={handleNavigateFromIntelligence}
+                            pat={pat}
+                          />
+                        )}
+
+                        {/* Tab 4: Contributor Mode (Pillar D) */}
+                        {activeTab === "contributor" && (
+                          <ContributorDashboard
+                            repoFullName={overview.fullName}
+                            defaultBranch={overview.defaultBranch}
+                            onSelectFile={handleNavigateFromIntelligence}
+                            pat={pat}
+                          />
+                        )}
+
+                        {/* Tab 5: File Explorer & Key Documents */}
+                        {activeTab === "explorer" && (
+                          <RepoExplorer
+                            repoFullName={overview.fullName}
+                            defaultBranch={overview.defaultBranch}
+                            initialFilePath={activeFilePath}
+                            onFileSelect={handleFileSelect}
+                            pat={pat}
+                          />
+                        )}
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <EmptyState />
+                )}
+              </section>
+            </motion.div>
           )}
-        </section>
-      </main>
+        </AnimatePresence>
+      </motion.main>
 
       {/* Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-800/80 py-6 text-center text-xs text-zinc-400 dark:text-zinc-500">

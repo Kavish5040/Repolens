@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import type { TreeNode } from "@/lib/github/types.ts";
 
 interface TreeNodeItemProps {
@@ -78,6 +79,7 @@ export function TreeNodeItem({
   onToggleExpand,
   depth = 0,
 }: TreeNodeItemProps) {
+  const shouldReduceMotion = useReducedMotion();
   const isDirectory = node.type === "directory";
   const isExpanded = isDirectory && expandedPaths.has(node.path);
   const isSelected = selectedPath === node.path;
@@ -93,12 +95,14 @@ export function TreeNodeItem({
 
   return (
     <div className="flex flex-col select-none text-xs">
-      <div
+      <motion.div
         onClick={handleClick}
         style={{ paddingLeft: `${depth * 14 + 6}px` }}
-        className={`group flex items-center justify-between py-1.5 pr-2.5 rounded-lg cursor-pointer transition-all ${
+        whileHover={shouldReduceMotion ? undefined : { x: 2 }}
+        transition={{ duration: 0.15, ease: "easeOut" }}
+        className={`group relative flex items-center justify-between py-1.5 pr-2.5 rounded-lg cursor-pointer transition-colors ${
           isSelected
-            ? "bg-blue-600 text-white font-semibold shadow-sm"
+            ? "bg-blue-600 text-white font-semibold shadow-xs"
             : "hover:bg-zinc-100 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300"
         }`}
       >
@@ -106,7 +110,7 @@ export function TreeNodeItem({
           {/* Chevron for directories */}
           {isDirectory ? (
             <span
-              className={`p-0.5 rounded text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform duration-150 ${
+              className={`p-0.5 rounded text-zinc-400 group-hover:text-zinc-600 dark:group-hover:text-zinc-200 transition-transform duration-200 ease-out ${
                 isExpanded ? "rotate-90 text-zinc-600 dark:text-zinc-200" : ""
               }`}
             >
@@ -181,24 +185,32 @@ export function TreeNodeItem({
             </span>
           )}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Recursive Children Rendering */}
-      {isDirectory && isExpanded && node.children && node.children.length > 0 && (
-        <div className="flex flex-col">
-          {node.children.map((child) => (
-            <TreeNodeItem
-              key={child.path}
-              node={child}
-              selectedPath={selectedPath}
-              onSelectFile={onSelectFile}
-              expandedPaths={expandedPaths}
-              onToggleExpand={onToggleExpand}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
+      {/* Recursive Children Rendering with Smooth Height Animation */}
+      <AnimatePresence initial={false}>
+        {isDirectory && isExpanded && node.children && node.children.length > 0 && (
+          <motion.div
+            initial={shouldReduceMotion ? false : { height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={shouldReduceMotion ? undefined : { height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col overflow-hidden"
+          >
+            {node.children.map((child) => (
+              <TreeNodeItem
+                key={child.path}
+                node={child}
+                selectedPath={selectedPath}
+                onSelectFile={onSelectFile}
+                expandedPaths={expandedPaths}
+                onToggleExpand={onToggleExpand}
+                depth={depth + 1}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

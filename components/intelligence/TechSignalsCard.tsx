@@ -1,5 +1,9 @@
+"use client";
+
 import React from "react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import type { TechnologySignal } from "@/lib/github/intelligence-types.ts";
+import { AnimatedNumber } from "@/components/ui/AnimatedNumber.tsx";
 
 interface TechSignalsCardProps {
   technologies: TechnologySignal[];
@@ -30,7 +34,30 @@ const CONFIDENCE_BADGES: Record<TechnologySignal["confidence"], { label: string;
   },
 };
 
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const badgeItemVariants: Variants = {
+  hidden: { opacity: 0, y: 8, scale: 0.96 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 420, damping: 25 },
+  },
+};
+
 export function TechSignalsCard({ technologies }: TechSignalsCardProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   if (!technologies || technologies.length === 0) {
     return (
       <div className="p-6 text-center text-xs text-zinc-400 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800">
@@ -54,11 +81,16 @@ export function TechSignalsCard({ technologies }: TechSignalsCardProps) {
           <span>Detected Technologies & Tooling</span>
         </h3>
         <span className="text-xs text-zinc-400 dark:text-zinc-500 font-mono">
-          {technologies.length} signals detected
+          <AnimatedNumber value={technologies.length} /> signals detected
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <motion.div
+        variants={shouldReduceMotion ? undefined : containerVariants}
+        initial={shouldReduceMotion ? false : "hidden"}
+        animate="visible"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+      >
         {Object.entries(grouped).map(([category, techs]) => (
           <div
             key={category}
@@ -73,9 +105,12 @@ export function TechSignalsCard({ technologies }: TechSignalsCardProps) {
                 const conf = CONFIDENCE_BADGES[tech.confidence];
 
                 return (
-                  <div
+                  <motion.div
                     key={tech.name}
-                    className="p-2.5 rounded-lg border border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-1 shadow-2xs"
+                    variants={shouldReduceMotion ? undefined : badgeItemVariants}
+                    whileHover={shouldReduceMotion ? undefined : { y: -2, scale: 1.015 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                    className="p-2.5 rounded-lg border border-zinc-200/60 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-1 shadow-2xs hover:border-blue-400/60 dark:hover:border-blue-600/60 transition-colors"
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
@@ -91,13 +126,13 @@ export function TechSignalsCard({ technologies }: TechSignalsCardProps) {
                         {tech.evidence[0]}
                       </p>
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
           </div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 }

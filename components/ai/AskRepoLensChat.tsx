@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { ChatMessageItem } from "./ChatMessageItem.tsx";
 import { PromptSuggestions } from "./PromptSuggestions.tsx";
 import type { ChatMessage } from "@/lib/ai/types.ts";
@@ -144,12 +145,19 @@ export function AskRepoLensChat({
     setError(null);
   };
 
+  const shouldReduceMotion = useReducedMotion();
+
   return (
-    <div className="w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col h-[650px] overflow-hidden">
+    <motion.div
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      className="w-full bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-sm flex flex-col h-[650px] overflow-hidden"
+    >
       {/* Chat Header */}
       <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-950/40">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm">
+          <div className="w-8 h-8 rounded-xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-sm shadow-xs">
             💬
           </div>
           <div>
@@ -166,7 +174,7 @@ export function AskRepoLensChat({
           <button
             type="button"
             onClick={handleClearHistory}
-            className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors"
+            className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors cursor-pointer"
           >
             Clear Chat
           </button>
@@ -177,7 +185,7 @@ export function AskRepoLensChat({
       <div className="flex-1 p-6 overflow-y-auto flex flex-col gap-5">
         {messages.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 py-8">
-            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 flex items-center justify-center text-xl">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500 flex items-center justify-center text-xl shadow-xs">
               🔍
             </div>
             <div className="max-w-md">
@@ -214,7 +222,7 @@ export function AskRepoLensChat({
             <button
               type="button"
               onClick={() => setError(null)}
-              className="text-[10px] font-semibold underline ml-2"
+              className="text-[10px] font-semibold underline ml-2 cursor-pointer"
             >
               Dismiss
             </button>
@@ -249,23 +257,25 @@ export function AskRepoLensChat({
             className="flex-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-2.5 text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition-all resize-none shadow-2xs"
           />
 
-          <button
+          <motion.button
             type="button"
             disabled={!inputValue.trim() || isStreaming}
+            whileHover={shouldReduceMotion || !inputValue.trim() || isStreaming ? undefined : { scale: 1.03 }}
+            whileTap={shouldReduceMotion || !inputValue.trim() || isStreaming ? undefined : { scale: 0.97 }}
             onClick={() => handleSendMessage()}
-            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 flex-shrink-0"
+            className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
           >
             {isStreaming ? (
               <span className="animate-spin text-xs">⏳</span>
             ) : (
               <>
                 <span>Send</span>
-                <span>➔</span>
+                <span className="font-sans">➔</span>
               </>
             )}
-          </button>
+          </motion.button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

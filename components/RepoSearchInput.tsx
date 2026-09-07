@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { parseGitHubUrl } from "@/lib/github/parser.ts";
 
 interface RepoSearchInputProps {
@@ -16,6 +17,7 @@ export function RepoSearchInput({
 }: RepoSearchInputProps) {
   const [query, setQuery] = useState(initialValue);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const shouldReduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (initialValue) {
@@ -52,7 +54,7 @@ export function RepoSearchInput({
   return (
     <div className="w-full max-w-2xl mx-auto">
       <form onSubmit={handleSubmit} className="relative flex flex-col gap-2">
-        <div className="relative flex items-center shadow-lg rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+        <div className="relative flex items-center shadow-lg shadow-zinc-900/5 dark:shadow-black/40 rounded-2xl ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500/80 focus-within:shadow-blue-500/10 focus-within:shadow-xl transition-all">
           {/* GitHub Icon Prefix */}
           <div className="pl-4 pr-2 text-zinc-400 dark:text-zinc-500 pointer-events-none">
             <svg
@@ -86,23 +88,28 @@ export function RepoSearchInput({
 
           {/* Clear Button */}
           {query && !isLoading && (
-            <button
+            <motion.button
               type="button"
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.1 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
               onClick={handleClear}
-              className="absolute right-24 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="absolute right-24 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1.5 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               title="Clear input"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-            </button>
+            </motion.button>
           )}
 
           {/* Submit Button */}
-          <button
+          <motion.button
             type="submit"
             disabled={isLoading || !query.trim()}
-            className="absolute right-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5"
+            whileHover={shouldReduceMotion || isLoading || !query.trim() ? undefined : { scale: 1.03 }}
+            whileTap={shouldReduceMotion || isLoading || !query.trim() ? undefined : { scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 450, damping: 25 }}
+            className="absolute right-2 px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-blue-600 hover:bg-blue-500 text-white shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             {isLoading ? (
               <>
@@ -115,7 +122,7 @@ export function RepoSearchInput({
             ) : (
               <span>Inspect</span>
             )}
-          </button>
+          </motion.button>
         </div>
 
         {/* Real-time Inline Validation Message */}

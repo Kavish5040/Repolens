@@ -1,5 +1,8 @@
+"use client";
+
 import React from "react";
 import Image from "next/image";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import type { RepoOverview } from "@/lib/github/types.ts";
 import { StatBadge } from "./StatBadge.tsx";
 import { LanguageBar } from "./LanguageBar.tsx";
@@ -7,6 +10,59 @@ import { LanguageBar } from "./LanguageBar.tsx";
 interface RepoOverviewCardProps {
   repo: RepoOverview;
 }
+
+const cardContainerVariants: Variants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.4,
+      ease: [0.16, 1, 0.3, 1],
+      staggerChildren: 0.08,
+      delayChildren: 0.05,
+    },
+  },
+};
+
+const identityVariants: Variants = {
+  hidden: { opacity: 0, y: 14, scale: 0.98 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: { type: "spring", stiffness: 380, damping: 28 },
+  },
+};
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+const statsGridVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.05,
+      delayChildren: 0.02,
+    },
+  },
+};
+
+const topicBadgeVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { type: "spring", stiffness: 450, damping: 25 },
+  },
+};
 
 function formatRelativeTime(dateString: string): string {
   const date = new Date(dateString);
@@ -26,14 +82,28 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
-    <div className="w-full bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-xl overflow-hidden backdrop-blur-sm transition-all">
+    <motion.div
+      variants={shouldReduceMotion ? undefined : cardContainerVariants}
+      initial={shouldReduceMotion ? false : "hidden"}
+      animate="visible"
+      className="w-full bg-white dark:bg-zinc-900/90 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 shadow-xl overflow-hidden backdrop-blur-sm transition-all"
+    >
       {/* Header Section */}
-      <div className="p-6 sm:p-8 border-b border-zinc-100 dark:border-zinc-800/80">
+      <div className="p-6 sm:p-8 border-b border-zinc-100 dark:border-zinc-800/80 flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="flex items-start gap-4">
+          <motion.div
+            variants={shouldReduceMotion ? undefined : identityVariants}
+            className="flex items-start gap-4"
+          >
             {/* Owner Avatar */}
-            <div className="relative w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-zinc-200 dark:ring-zinc-700 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800">
+            <motion.div
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="relative w-14 h-14 rounded-2xl overflow-hidden ring-2 ring-zinc-200 dark:ring-zinc-700 flex-shrink-0 bg-zinc-100 dark:bg-zinc-800 shadow-sm"
+            >
               <Image
                 src={repo.owner.avatarUrl}
                 alt={repo.owner.login}
@@ -42,7 +112,7 @@ export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
                 className="object-cover"
                 unoptimized
               />
-            </div>
+            </motion.div>
 
             {/* Repo Title & Details */}
             <div className="flex flex-col gap-1">
@@ -65,17 +135,23 @@ export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
               </div>
 
               {/* Description */}
-              <p className="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 mt-1 leading-relaxed max-w-3xl">
+              <motion.p
+                variants={shouldReduceMotion ? undefined : itemVariants}
+                className="text-sm sm:text-base text-zinc-600 dark:text-zinc-300 mt-1 leading-relaxed max-w-3xl"
+              >
                 {repo.description || (
                   <span className="italic text-zinc-400">
                     No description provided for this repository.
                   </span>
                 )}
-              </p>
+              </motion.p>
 
               {/* Homepage Link if available */}
               {repo.homepage && (
-                <div className="flex items-center gap-1.5 mt-2">
+                <motion.div
+                  variants={shouldReduceMotion ? undefined : itemVariants}
+                  className="flex items-center gap-1.5 mt-2"
+                >
                   <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                   </svg>
@@ -87,44 +163,57 @@ export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
                   >
                     {repo.homepage}
                   </a>
-                </div>
+                </motion.div>
               )}
             </div>
-          </div>
+          </motion.div>
 
           {/* GitHub External Button */}
-          <div className="flex items-center gap-2 self-start">
-            <a
+          <motion.div
+            variants={shouldReduceMotion ? undefined : itemVariants}
+            className="flex items-center gap-2 self-start"
+          >
+            <motion.a
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.03, y: -1 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.97 }}
               href={repo.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 shadow-sm transition-all"
+              className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 shadow-sm transition-colors"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
               </svg>
               <span>View on GitHub</span>
-            </a>
-          </div>
+            </motion.a>
+          </motion.div>
         </div>
 
         {/* Topics / Tags */}
         {repo.topics.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 mt-4">
+          <motion.div
+            variants={shouldReduceMotion ? undefined : statsGridVariants}
+            className="flex flex-wrap gap-1.5 mt-1"
+          >
             {repo.topics.map((topic) => (
-              <span
+              <motion.span
                 key={topic}
-                className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40"
+                variants={shouldReduceMotion ? undefined : topicBadgeVariants}
+                whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+                className="text-[11px] font-medium px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 border border-blue-100 dark:border-blue-900/40 cursor-default transition-colors"
               >
                 #{topic}
-              </span>
+              </motion.span>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 
       {/* Stats Grid */}
-      <div className="p-6 sm:p-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-950/20">
+      <motion.div
+        variants={shouldReduceMotion ? undefined : statsGridVariants}
+        className="p-6 sm:p-8 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 border-b border-zinc-100 dark:border-zinc-800/80 bg-zinc-50/30 dark:bg-zinc-950/20"
+      >
         <StatBadge
           label="Stars"
           value={repo.stars}
@@ -180,10 +269,13 @@ export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
             </svg>
           }
         />
-      </div>
+      </motion.div>
 
       {/* Languages & Latest Activity Section */}
-      <div className="p-6 sm:p-8 flex flex-col lg:flex-row gap-8">
+      <motion.div
+        variants={shouldReduceMotion ? undefined : itemVariants}
+        className="p-6 sm:p-8 flex flex-col lg:flex-row gap-8"
+      >
         {/* Language Breakdown */}
         <div className="flex-1">
           <LanguageBar languages={repo.languages} />
@@ -191,9 +283,14 @@ export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
 
         {/* Latest Activity / Commit */}
         {repo.latestCommit && (
-          <div className="lg:w-80 flex flex-col gap-2 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40">
+          <motion.div
+            whileHover={shouldReduceMotion ? undefined : { y: -3, scale: 1.01 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+            className="lg:w-80 flex flex-col gap-2 p-4 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/40 hover:border-zinc-300 dark:hover:border-zinc-700 hover:shadow-md hover:shadow-blue-500/5 transition-all"
+          >
             <div className="flex items-center justify-between text-xs">
-              <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+              <span className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Latest Commit
               </span>
               <span className="text-zinc-400 dark:text-zinc-500 text-[11px]">
@@ -234,9 +331,9 @@ export function RepoOverviewCard({ repo }: RepoOverviewCardProps) {
                 {repo.latestCommit.shortSha}
               </a>
             </div>
-          </div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

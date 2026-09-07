@@ -2,6 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { motion, useReducedMotion } from "motion/react";
 import type { ContributorIssue } from "@/lib/contributor/types.ts";
 import { ReadinessScoreWidget } from "./ReadinessScoreWidget.tsx";
 
@@ -29,6 +30,8 @@ function formatRelativeTime(dateString: string): string {
 }
 
 export function IssueCard({ issue, isSelected, onSelect }: IssueCardProps) {
+  const shouldReduceMotion = useReducedMotion();
+
   const difficultyBadge = {
     beginner: "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800",
     intermediate: "bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800",
@@ -42,11 +45,14 @@ export function IssueCard({ issue, isSelected, onSelect }: IssueCardProps) {
   }[issue.difficulty];
 
   return (
-    <div
+    <motion.div
       onClick={() => onSelect(issue)}
-      className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col gap-3 ${
+      whileHover={shouldReduceMotion ? undefined : { y: -2, scale: 1.006 }}
+      whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col gap-3 shadow-2xs hover:shadow-md hover:shadow-blue-500/5 ${
         isSelected
-          ? "bg-blue-50/70 dark:bg-blue-950/30 border-blue-500 dark:border-blue-600 shadow-sm"
+          ? "bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 dark:border-blue-500 shadow-sm ring-1 ring-blue-500/20"
           : "bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/50 dark:hover:bg-zinc-850/50"
       }`}
     >
@@ -129,6 +135,6 @@ export function IssueCard({ issue, isSelected, onSelect }: IssueCardProps) {
           </a>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

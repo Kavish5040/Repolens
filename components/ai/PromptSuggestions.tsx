@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { motion, useReducedMotion } from "motion/react";
 
 interface PromptSuggestionsProps {
   technologies: string[];
@@ -13,6 +14,7 @@ export function PromptSuggestions({
   onSelectPrompt,
   disabled,
 }: PromptSuggestionsProps) {
+  const shouldReduceMotion = useReducedMotion();
   const isNext = technologies.some((t) => t.toLowerCase().includes("next"));
   const isReact = technologies.some((t) => t.toLowerCase().includes("react"));
   const isPython = technologies.some((t) => t.toLowerCase().includes("python") || t.toLowerCase().includes("django") || t.toLowerCase().includes("fastapi"));
@@ -41,15 +43,18 @@ export function PromptSuggestions({
       </div>
       <div className="flex flex-wrap gap-2">
         {suggestions.map((s, idx) => (
-          <button
+          <motion.button
             key={idx}
             type="button"
             disabled={disabled}
+            whileHover={shouldReduceMotion || disabled ? undefined : { scale: 1.02, y: -1 }}
+            whileTap={shouldReduceMotion || disabled ? undefined : { scale: 0.98 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
             onClick={() => onSelectPrompt(s)}
-            className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:border-blue-500 hover:text-blue-600 dark:hover:border-blue-400 dark:hover:text-blue-400 transition-all text-left shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed"
+            className="text-xs px-3 py-1.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:border-blue-500 hover:text-blue-600 dark:hover:border-blue-400 dark:hover:text-blue-400 transition-colors text-left shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {s}
-          </button>
+          </motion.button>
         ))}
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { motion, useReducedMotion, type Variants } from "motion/react";
 import { StructuralInsightsBanner } from "./StructuralInsightsBanner.tsx";
 import { WhereToStartCard } from "./WhereToStartCard.tsx";
 import { ReadingOrderList } from "./ReadingOrderList.tsx";
@@ -10,6 +11,26 @@ import { DirectoryTopologyGrid } from "./DirectoryTopologyGrid.tsx";
 import type { RepoIntelligenceData } from "@/lib/github/intelligence-types.ts";
 import type { ApiResponse } from "@/lib/github/types.ts";
 import { loadPat } from "@/lib/pat/storage.ts";
+
+const dashboardVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const sectionVariants: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+  },
+};
 
 interface IntelligenceDashboardProps {
   repoFullName: string;
@@ -25,6 +46,7 @@ export function IntelligenceDashboard({
   onNavigateToFile,
   onNavigateToFolder,
 }: IntelligenceDashboardProps) {
+  const shouldReduceMotion = useReducedMotion();
   const [intelligence, setIntelligence] = useState<RepoIntelligenceData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -115,18 +137,30 @@ export function IntelligenceDashboard({
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full">
+    <motion.div
+      variants={shouldReduceMotion ? undefined : dashboardVariants}
+      initial={shouldReduceMotion ? false : "hidden"}
+      animate="visible"
+      className="flex flex-col gap-6 w-full"
+    >
       {/* 1. Structural Highlights Banner */}
-      <StructuralInsightsBanner insights={intelligence.insights} />
+      <motion.div variants={shouldReduceMotion ? undefined : sectionVariants}>
+        <StructuralInsightsBanner insights={intelligence.insights} />
+      </motion.div>
 
       {/* 2. Where Should I Start? (Primary Guided Pathway) */}
-      <WhereToStartCard
-        steps={intelligence.whereToStart}
-        onNavigateToTarget={handleTargetNavigation}
-      />
+      <motion.div variants={shouldReduceMotion ? undefined : sectionVariants}>
+        <WhereToStartCard
+          steps={intelligence.whereToStart}
+          onNavigateToTarget={handleTargetNavigation}
+        />
+      </motion.div>
 
       {/* 3. Tech Stack Signals & Application Entry Points */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <motion.div
+        variants={shouldReduceMotion ? undefined : sectionVariants}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start"
+      >
         {/* Left Column: Tech Signals & Reading Order */}
         <div className="flex flex-col gap-6 w-full">
           <TechSignalsCard technologies={intelligence.technologies} />
@@ -147,7 +181,7 @@ export function IntelligenceDashboard({
             onSelectDirectory={(path) => onNavigateToFolder?.(path)}
           />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
