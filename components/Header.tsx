@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { RepoLensMascot } from "@/components/ui/RepoLensMascot.tsx";
 import type { RateLimitInfo } from "@/lib/github/types.ts";
 import {
   loadPat,
@@ -18,6 +19,61 @@ interface HeaderProps {
   rateLimit?: RateLimitInfo | null;
   onPatChange?: (pat: string | null) => void;
 }
+
+/**
+ * MascotBranding
+ * Renders the mascot SVG beside the RepoLens wordmark.
+ * - Hover on the mascot triggers a one-shot lens highlight sweep.
+ * - Hover on the wordmark area runs a brief blue text-shadow pulse.
+ * No infinite animations. prefers-reduced-motion is respected inside
+ * RepoLensMascot and in the CSS keyframes.
+ */
+function MascotBranding() {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const handleMascotEnter = useCallback(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    el.classList.remove("rl-sweep-active");
+    // Force reflow to allow re-triggering the animation
+    void el.offsetWidth;
+    el.classList.add("rl-sweep-active");
+  }, []);
+
+  const handleMascotLeave = useCallback(() => {
+    // The animation finishes on its own (forwards); clean class after it ends
+    const el = wrapperRef.current;
+    if (!el) return;
+    const cleanup = () => el.classList.remove("rl-sweep-active");
+    el.addEventListener("animationend", cleanup, { once: true });
+  }, []);
+
+  return (
+    <div className="flex items-center gap-2.5">
+      {/* Mascot: hover triggers sweep highlight */}
+      <div
+        ref={wrapperRef}
+        onMouseEnter={handleMascotEnter}
+        onMouseLeave={handleMascotLeave}
+        className="shrink-0"
+      >
+        <RepoLensMascot size={38} />
+      </div>
+
+      {/* Wordmark */}
+      <div className="rl-wordmark-hover flex items-baseline">
+        <span className="font-bold text-xl tracking-tight text-zinc-900 dark:text-zinc-50">
+          Repo
+        </span>
+        <span className="rl-accent font-bold text-xl tracking-tight text-blue-600 dark:text-blue-400">
+          Lens
+        </span>
+      </div>
+    </div>
+  );
+}
+
+
 
 export function Header({ rateLimit, onPatChange }: HeaderProps) {
   const [storedPat, setStoredPat] = useState<string | null>(null);
@@ -189,31 +245,7 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
     <header className="w-full border-b border-zinc-200 bg-white/70 backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-950/70 sticky top-0 z-50 transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Logo & Branding */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-blue-600 to-cyan-400 flex items-center justify-center shadow-md shadow-blue-500/20 ring-1 ring-white/20">
-            <svg
-              className="w-5 h-5 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"
-              />
-            </svg>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-bold text-xl tracking-tight text-zinc-900 dark:text-zinc-50">
-              Repo<span className="text-blue-600 dark:text-blue-400">Lens</span>
-            </span>
-            <span className="text-[11px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/40">
-              AI Intelligence
-            </span>
-          </div>
-        </div>
+        <MascotBranding />
 
         {/* Right Section */}
         <div className="flex items-center gap-2">

@@ -39,3 +39,38 @@ body {
 .animate-fadeIn {
   animation: fadeIn 0.25s ease-out forwards;
 }
+
+/* ── RepoLens mascot animations ───────────────────────────────── */
+@keyframes rl-sweep {
+  from { transform: translateX(-30px) rotate(-20deg); opacity: 0; }
+  40%  { opacity: 1; }
+  to   { transform: translateX(50px) rotate(-20deg); opacity: 0; }
+}
+
+/* Triggered by parent group hover via JS-applied class */
+.rl-sweep-active .rl-sweep {
+  animation: rl-sweep 0.55s ease-in-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rl-sweep-active .rl-sweep {
+    animation: none;
+  }
+}
+
+/* Wordmark hover accent transition */
+@keyframes rl-wordmark-pulse {
+  0%   { text-shadow: 0 0 0px transparent; }
+  50%  { text-shadow: 0 0 8px rgba(59,130,246,0.45); }
+  100% { text-shadow: 0 0 0px transparent; }
+}
+
+.rl-wordmark-hover:hover .rl-accent {
+  animation: rl-wordmark-pulse 0.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rl-wordmark-hover:hover .rl-accent {
+    animation: none;
+  }
+}
