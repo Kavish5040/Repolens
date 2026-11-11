@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseGitHubUrl } from "@/lib/github/parser.ts";
-import type { IssueCategory } from "@/lib/github/types.ts";
+import type { GitTreeItemDto, KeyDocument } from "@/lib/github/types.ts";
+import type { IssueCategory } from "@/lib/contributor/types.ts";
 import { detectKeyDocuments } from "@/lib/github/tree.ts";
 import { fetchRepoIssues } from "@/lib/contributor/issues.ts";
 import { fetchGitTree } from "@/lib/github/client.ts";
