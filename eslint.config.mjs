@@ -13,7 +13,20 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "node_modules/**",
+    "coverage/**",
+    ".git/**",
   ]),
+  {
+    // Additional ignore patterns for flat-config ESLint CLI
+    ignores: [
+      "node_modules/",
+      ".next/",
+      "out/",
+      "build/",
+      "coverage/",
+      ".git/",
+    ],
+  },
 ]);
 
 export default eslintConfig;

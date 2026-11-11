@@ -12,68 +12,76 @@
  *   Do NOT import in server-side code or API routes.
  */
 
-const PAT_STORAGE_KEY = "rl_github_pat";
+import {
+  validatePatFormat,
+  getPatType,
+  maskPat,
+  type PatType,
+  type PatValidationResult,
+  PAT_DOCUMENTATION,
+} from "./validation.ts";
 
-/** Known GitHub PAT prefixes (as of 2022+ fine-grained and classic tokens). */
-const KNOWN_PREFIXES = ["ghp_", "github_pat_", "gho_", "ghu_", "ghs_", "ghr_"];
+export {
+  validatePatFormat,
+  getPatType,
+  maskPat,
+  type PatType,
+  type PatValidationResult,
+  PAT_DOCUMENTATION,
+};
 
-/** Minimum sensible token length (prefix + entropy). */
-const MIN_TOKEN_LENGTH = 20;
+export const PAT_STORAGE_KEY = "rl_github_pat";
 
-export interface PatValidationResult {
-  valid: boolean;
-  reason?: string;
+export interface StorageOperationResult {
+  success: boolean;
+  error?: string;
 }
 
 /**
- * Validates the format of a GitHub PAT without making any network request.
- * Returns { valid: true } when the format looks plausible.
- * Returns { valid: false, reason } when the format is clearly wrong.
+ * Checks whether browser localStorage is accessible and writable.
+ * Safely returns false if cookies/storage are disabled or in a locked-down mode.
  */
-export function validatePatFormat(token: string): PatValidationResult {
-  const trimmed = token.trim();
-
-  if (!trimmed) {
-    return { valid: false, reason: "Token cannot be empty." };
+export function isStorageAvailable(): boolean {
+  if (typeof localStorage === "undefined") return false;
+  try {
+    const testKey = "__rl_test_storage__";
+    localStorage.setItem(testKey, "1");
+    localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
   }
-
-  if (trimmed.length < MIN_TOKEN_LENGTH) {
-    return {
-      valid: false,
-      reason: `Token is too short (minimum ${MIN_TOKEN_LENGTH} characters).`,
-    };
-  }
-
-  const hasKnownPrefix = KNOWN_PREFIXES.some((prefix) =>
-    trimmed.startsWith(prefix)
-  );
-  if (!hasKnownPrefix) {
-    return {
-      valid: false,
-      reason:
-        "Token does not look like a GitHub PAT. It should start with ghp_, github_pat_, or similar.",
-    };
-  }
-
-  // Reject tokens with whitespace characters embedded inside
-  if (/\s/.test(trimmed)) {
-    return { valid: false, reason: "Token must not contain whitespace." };
-  }
-
-  return { valid: true };
 }
 
 /**
  * Saves a GitHub PAT to localStorage.
  * Trims whitespace before saving. Does not log the token.
- *
- * Only call this after validatePatFormat() returns { valid: true }.
+ * Protected against browser SecurityError or QuotaExceededError in restricted modes.
  */
-export function savePat(token: string): void {
-  if (typeof localStorage === "undefined") return;
+export function savePat(token: string): StorageOperationResult {
+  if (typeof localStorage === "undefined") {
+    return {
+      success: false,
+      error: "Browser localStorage is not available in this environment.",
+    };
+  }
   const trimmed = token.trim();
-  if (!trimmed) return;
-  localStorage.setItem(PAT_STORAGE_KEY, trimmed);
+  if (!trimmed) {
+    return {
+      success: false,
+      error: "Token cannot be empty.",
+    };
+  }
+  try {
+    localStorage.setItem(PAT_STORAGE_KEY, trimmed);
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error:
+        "Unable to save token to browser storage (localStorage may be disabled, blocked in private browsing, or quota exceeded).",
+    };
+  }
 }
 
 /**
@@ -82,27 +90,31 @@ export function savePat(token: string): void {
  */
 export function loadPat(): string | null {
   if (typeof localStorage === "undefined") return null;
-  const value = localStorage.getItem(PAT_STORAGE_KEY);
-  return value && value.trim() ? value.trim() : null;
+  try {
+    const value = localStorage.getItem(PAT_STORAGE_KEY);
+    return value && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
+  }
 }
 
 /**
  * Clears the stored GitHub PAT from localStorage.
  */
-export function clearPat(): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(PAT_STORAGE_KEY);
-}
-
-/**
- * Returns a masked display string for the token suitable for UI display.
- * E.g. "ghp_****...AbCd"
- * Never returns the full token.
- */
-export function maskPat(token: string): string {
-  const trimmed = token.trim();
-  if (trimmed.length <= 8) return "****";
-  const prefix = trimmed.slice(0, 4);
-  const suffix = trimmed.slice(-4);
-  return `${prefix}****...${suffix}`;
+export function clearPat(): StorageOperationResult {
+  if (typeof localStorage === "undefined") {
+    return {
+      success: false,
+      error: "Browser localStorage is not available in this environment.",
+    };
+  }
+  try {
+    localStorage.removeItem(PAT_STORAGE_KEY);
+    return { success: true };
+  } catch (err) {
+    return {
+      success: false,
+      error: "Unable to clear token from browser storage.",
+    };
+  }
 }

@@ -71,17 +71,34 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## Optional: Browser GitHub Token
+## Optional: GitHub Personal Access Token (PAT)
 
-Without a server-side `GITHUB_TOKEN`, RepoLens falls back to unauthenticated GitHub API (60 requests/hour per IP).
+Without a `GITHUB_TOKEN`, RepoLens falls back to unauthenticated GitHub API (60 requests/hour per IP).
+Adding a PAT raises the rate limit to **5,000 requests/hour**.
 
-Users can supply their own GitHub PAT directly in the browser:
+RepoLens supports both **Classic** and **Fine-grained** Personal Access Tokens:
 
+### 1. Fine-grained Personal Access Token (`github_pat_...`) [Recommended by GitHub]
+* **Repository access:** Set to **"Public Repositories (read-only)"** or select specific repositories you want to inspect.
+* **Repository permissions:**
+  * **Contents:** `Read-only` *(required to view code, tree, and commit history)*
+  * **Metadata:** `Read-only` *(mandatory, set automatically by GitHub)*
+  * **Issues:** `Read-only` *(optional — only needed for Contributor Mode / issues analysis)*
+* **User permissions:** None required.
+* **Generate:** [GitHub Fine-grained PAT Settings](https://github.com/settings/personal-access-tokens/new)
+
+### 2. Classic Personal Access Token (`ghp_...`)
+* **Scopes:** Select only the `public_repo` scope (read-only access to public repositories).
+* No write or administration scopes are needed.
+* **Generate:** [GitHub Classic PAT Settings](https://github.com/settings/tokens/new?scopes=public_repo&description=RepoLens)
+
+### Supplying a Token in the Browser
+Users can supply their token directly in the UI without server configuration:
 1. Click **"Add token"** in the top-right header.
-2. Enter a PAT with `public_repo` (read-only) scope.
-3. Click **"Save Token"**.
+2. Enter your token (`ghp_...` or `github_pat_...`).
+3. Click **"Verify & Save Token"** — RepoLens validates credentials against GitHub API before storing.
 
-The token is stored only in the browser's `localStorage`. It is **never** sent to the AI gateway or logged anywhere. It grants 5,000 req/hr for that browser session.
+The token is stored exclusively in your browser's `localStorage` under `rl_github_pat`. It is **never** sent to the AI service, logged, or exposed in error messages. If a token expires or is invalid, RepoLens preserves your view and allows falling back to public repository access.
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import type { RateLimitInfo } from "@/lib/github/types.ts";
 import {
   loadPat,
@@ -8,7 +8,11 @@ import {
   clearPat,
   maskPat,
   validatePatFormat,
+  getPatType,
+  type PatType,
+  PAT_STORAGE_KEY,
 } from "@/lib/pat/storage.ts";
+import type { PatVerificationResult } from "@/lib/pat/verify.ts";
 
 interface HeaderProps {
   rateLimit?: RateLimitInfo | null;
@@ -18,14 +22,48 @@ interface HeaderProps {
 export function Header({ rateLimit, onPatChange }: HeaderProps) {
   const [storedPat, setStoredPat] = useState<string | null>(null);
   const [showPanel, setShowPanel] = useState(false);
+  const [isReplacing, setIsReplacing] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [patType, setPatType] = useState<PatType>("other");
+  const [verificationResult, setVerificationResult] = useState<PatVerificationResult | null>(null);
+  const [activeDocsTab, setActiveDocsTab] = useState<"fine-grained" | "classic">("fine-grained");
+
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load PAT from localStorage on mount (client-only)
   useEffect(() => {
-    setStoredPat(loadPat());
+    const loaded = loadPat();
+    setStoredPat(loaded);
+    if (loaded) {
+      setPatType(getPatType(loaded));
+    }
+  }, []);
+
+  useEffect(() => {
+    function handleOpenEvent() {
+      setShowPanel(true);
+      setValidationError(null);
+    }
+    window.addEventListener("open-pat-settings", handleOpenEvent);
+    return () => window.removeEventListener("open-pat-settings", handleOpenEvent);
+  }, []);
+  // Cross‑tab PAT synchronization
+  useEffect(() => {
+    function handleStorage(event: StorageEvent) {
+      if (event.key === PAT_STORAGE_KEY && event.storageArea === localStorage) {
+        // Update stored PAT and type based on new value (may be null)
+        const newPat = event.newValue;
+        setStoredPat(newPat);
+        setPatType(newPat ? getPatType(newPat) : "other");
+        // Notify parent if needed
+        onPatChange?.(newPat);
+      }
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   // Close panel when clicking outside
@@ -34,6 +72,7 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
     function handleClick(e: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         setShowPanel(false);
+        setIsReplacing(false);
         setValidationError(null);
       }
     }
@@ -41,41 +80,107 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [showPanel]);
 
-  // Focus input when panel opens
+  // Focus input when input form is visible
   useEffect(() => {
-    if (showPanel && !storedPat) {
+    if (showPanel && (!storedPat || isReplacing)) {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [showPanel, storedPat]);
+  }, [showPanel, storedPat, isReplacing]);
 
-  const handleSave = () => {
-    const result = validatePatFormat(inputValue);
-    if (!result.valid) {
-      setValidationError(result.reason ?? "Invalid token format.");
+  // Verify token against GitHub API via /api/pat/verify
+  const verifyTokenWithGithub = async (token: string): Promise<PatVerificationResult> => {
+    setIsVerifying(true);
+    setValidationError(null);
+
+    try {
+      const res = await fetch("/api/pat/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-github-token": token.trim(),
+        },
+      });
+
+      const json = await res.json();
+
+      if (json.success && json.data) {
+        return json.data as PatVerificationResult;
+      }
+
+      return {
+        valid: false,
+        tokenType: getPatType(token),
+        code: json.error?.code || "INVALID_PAT",
+        statusCode: res.status,
+        message: json.error?.message || "GitHub API rejected this token.",
+      };
+    } catch (err) {
+      return {
+        valid: false,
+        tokenType: getPatType(token),
+        code: "NETWORK_ERROR",
+        statusCode: 500,
+        message: err instanceof Error ? err.message : "Failed to verify token with GitHub.",
+      };
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleSave = async () => {
+    const trimmed = inputValue.trim();
+
+    // 1. Structural format check
+    const formatCheck = validatePatFormat(trimmed);
+    if (!formatCheck.valid) {
+      setValidationError(formatCheck.reason ?? "Invalid token format.");
       return;
     }
-    savePat(inputValue);
+
+    // 2. Validate credentials against GitHub API before claiming it is valid
+    const verification = await verifyTokenWithGithub(trimmed);
+    setVerificationResult(verification);
+
+    if (!verification.valid) {
+      setValidationError(verification.message);
+      return;
+    }
+
+    // 3. GitHub confirmed token is valid — now save to localStorage
+    savePat(trimmed);
     const saved = loadPat();
     setStoredPat(saved);
+    setPatType(getPatType(trimmed));
     setInputValue("");
     setValidationError(null);
-    setShowPanel(false);
+    setIsReplacing(false);
     onPatChange?.(saved);
   };
 
   const handleClear = () => {
     clearPat();
     setStoredPat(null);
+    setVerificationResult(null);
     setInputValue("");
     setValidationError(null);
-    setShowPanel(false);
+    setIsReplacing(false);
     onPatChange?.(null);
   };
 
+  const handleReverify = async () => {
+    if (!storedPat) return;
+    const result = await verifyTokenWithGithub(storedPat);
+    setVerificationResult(result);
+    if (!result.valid) {
+      setValidationError(result.message);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") handleSave();
+    if (e.key === "Enter" && !isVerifying) handleSave();
     if (e.key === "Escape") {
       setShowPanel(false);
+      setIsReplacing(false);
       setValidationError(null);
     }
   };
@@ -147,8 +252,13 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
               onClick={() => {
                 setShowPanel((v) => !v);
                 setValidationError(null);
+                setIsReplacing(false);
               }}
-              title={storedPat ? "GitHub token configured — click to manage" : "Set GitHub Personal Access Token"}
+              title={
+                storedPat
+                  ? `GitHub token configured (${patType}) — click to manage`
+                  : "Set GitHub Personal Access Token for 5,000 req/hr quota"
+              }
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 storedPat
                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40 dark:hover:bg-emerald-950/60"
@@ -156,54 +266,122 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
               }`}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+                />
               </svg>
-              <span className="hidden sm:inline">{storedPat ? "Token active" : "Add token"}</span>
+              <span className="hidden sm:inline">
+                {storedPat ? "Token active" : "Add token"}
+              </span>
             </button>
 
             {/* PAT Panel */}
             {showPanel && (
               <div
-                className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl shadow-zinc-900/10 dark:shadow-zinc-900/50 p-4 z-50"
+                className="absolute right-0 top-full mt-2 w-88 sm:w-96 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl shadow-xl shadow-zinc-900/10 dark:shadow-zinc-900/50 p-4 z-50 animate-fadeIn"
                 role="dialog"
                 aria-label="GitHub Personal Access Token settings"
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                  </svg>
-                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    GitHub Personal Access Token
-                  </h3>
+                <div className="flex items-center justify-between pb-3 border-b border-zinc-100 dark:border-zinc-800 mb-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                      GitHub Personal Access Token
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPanel(false);
+                      setIsReplacing(false);
+                    }}
+                    className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-md"
+                    aria-label="Close"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
 
-                {storedPat ? (
-                  /* Token is set — show masked display */
+                {storedPat && !isReplacing ? (
+                  /* Token is configured — show masked view and management controls */
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/40 rounded-lg">
-                      <svg className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <code className="text-xs text-emerald-700 dark:text-emerald-300 font-mono truncate">
+                    <div className="p-3 bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/40 rounded-xl flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
+                          {patType === "fine-grained" ? "Fine-grained Token" : patType === "classic" ? "Classic Token" : "GitHub Token"}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 font-semibold">
+                          Active (5,000 req/hr)
+                        </span>
+                      </div>
+                      <code className="text-xs text-emerald-900 dark:text-emerald-200 font-mono tracking-tight select-all">
                         {maskPat(storedPat)}
                       </code>
+                      {verificationResult?.user?.login && (
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-300">
+                          Authenticated as <strong>@{verificationResult.user.login}</strong>
+                        </p>
+                      )}
                     </div>
+
                     <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                      Token is active. GitHub API requests use your 5,000 req/hr quota.
+                      Token is configured in this browser. GitHub API requests will use your personal quota.
                     </p>
+
+                    {validationError && (
+                      <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 text-xs text-rose-700 dark:text-rose-300">
+                        {validationError}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        id="pat-replace-btn"
+                        type="button"
+                        onClick={() => {
+                          setIsReplacing(true);
+                          setInputValue("");
+                          setValidationError(null);
+                        }}
+                        className="text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-lg px-3 py-2 transition-colors"
+                      >
+                        Replace Token
+                      </button>
+
+                      <button
+                        id="pat-clear-btn"
+                        type="button"
+                        onClick={handleClear}
+                        className="text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-800/40 rounded-lg px-3 py-2 transition-colors"
+                      >
+                        Clear Token
+                      </button>
+                    </div>
+
                     <button
-                      id="pat-clear-btn"
                       type="button"
-                      onClick={handleClear}
-                      className="w-full text-xs font-medium text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 border border-rose-200 dark:border-rose-800/40 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg px-3 py-2 transition-colors"
+                      onClick={handleReverify}
+                      disabled={isVerifying}
+                      className="text-[11px] text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 text-center py-1 underline transition-colors"
                     >
-                      Clear Token
+                      {isVerifying ? "Verifying with GitHub..." : "Test / Re-verify Token"}
                     </button>
                   </div>
                 ) : (
-                  /* No token set — show input form */
+                  /* Form to enter a new token or replace an existing one */
                   <div className="flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1.5">
+                      <label htmlFor="pat-input" className="text-xs font-medium text-zinc-700 dark:text-zinc-300 flex justify-between">
+                        <span>{isReplacing ? "Enter New Token" : "Enter Personal Access Token"}</span>
+                        <span className="text-zinc-400 text-[11px]">Classic or Fine-grained</span>
+                      </label>
                       <input
                         id="pat-input"
                         ref={inputRef}
@@ -214,9 +392,10 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
                           setValidationError(null);
                         }}
                         onKeyDown={handleKeyDown}
-                        placeholder="ghp_..."
+                        placeholder="ghp_... or github_pat_..."
                         autoComplete="off"
                         spellCheck={false}
+                        disabled={isVerifying}
                         className={`w-full text-xs font-mono px-3 py-2 rounded-lg border bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 transition-colors ${
                           validationError
                             ? "border-rose-400 focus:ring-rose-500/30"
@@ -224,32 +403,126 @@ export function Header({ rateLimit, onPatChange }: HeaderProps) {
                         }`}
                       />
                       {validationError && (
-                        <p className="text-xs text-rose-600 dark:text-rose-400">{validationError}</p>
+                        <p className="text-xs text-rose-600 dark:text-rose-400 leading-snug">{validationError}</p>
                       )}
                     </div>
-                    <button
-                      id="pat-save-btn"
-                      type="button"
-                      onClick={handleSave}
-                      disabled={!inputValue.trim()}
-                      className="w-full text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-200 dark:disabled:bg-zinc-700 disabled:text-zinc-400 dark:disabled:text-zinc-500 text-white rounded-lg px-3 py-2 transition-colors"
-                    >
-                      Save Token
-                    </button>
-                    {/* Security disclosure */}
-                    <div className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed border-t border-zinc-100 dark:border-zinc-800 pt-3 space-y-1">
-                      <p>
-                        <strong className="text-zinc-700 dark:text-zinc-300">🔒 Privacy:</strong>{" "}
-                        Stored only in <em>this browser</em> (localStorage). Never sent to the AI service.
-                      </p>
-                      <p>
-                        <strong className="text-zinc-700 dark:text-zinc-300">📈 Benefit:</strong>{" "}
-                        Increases your GitHub API limit from 60 to 5,000 requests/hour.
-                      </p>
-                      <p>
-                        <strong className="text-zinc-700 dark:text-zinc-300">🔑 Scope:</strong>{" "}
-                        Only <code className="font-mono bg-zinc-100 dark:bg-zinc-800 px-1 rounded">public_repo</code> (read-only) is needed.
-                      </p>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        id="pat-save-btn"
+                        type="button"
+                        onClick={handleSave}
+                        disabled={!inputValue.trim() || isVerifying}
+                        className="flex-1 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-200 dark:disabled:bg-zinc-700 disabled:text-zinc-400 dark:disabled:text-zinc-500 text-white rounded-lg px-3 py-2 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        {isVerifying ? (
+                          <>
+                            <svg className="w-3.5 h-3.5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                            <span>Verifying with GitHub...</span>
+                          </>
+                        ) : (
+                          <span>Verify & Save Token</span>
+                        )}
+                      </button>
+
+                      {isReplacing && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsReplacing(false);
+                            setValidationError(null);
+                          }}
+                          className="text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg px-3 py-2 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Token Documentation Tabs: Fine-grained vs Classic */}
+                    <div className="border-t border-zinc-100 dark:border-zinc-800 pt-3 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300">
+                          Which token should I use?
+                        </span>
+                        <div className="flex rounded-md p-0.5 bg-zinc-100 dark:bg-zinc-800 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setActiveDocsTab("fine-grained")}
+                            className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                              activeDocsTab === "fine-grained"
+                                ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs"
+                                : "text-zinc-500 dark:text-zinc-400"
+                            }`}
+                          >
+                            Fine-grained
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveDocsTab("classic")}
+                            className={`px-2 py-0.5 rounded font-medium transition-colors ${
+                              activeDocsTab === "classic"
+                                ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs"
+                                : "text-zinc-500 dark:text-zinc-400"
+                            }`}
+                          >
+                            Classic
+                          </button>
+                        </div>
+                      </div>
+
+                      {activeDocsTab === "fine-grained" ? (
+                        <div className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-1 bg-zinc-50 dark:bg-zinc-800/50 p-2.5 rounded-lg border border-zinc-200/60 dark:border-zinc-800">
+                          <p className="font-semibold text-zinc-800 dark:text-zinc-200">
+                            Fine-grained PAT (<code>github_pat_...</code>):
+                          </p>
+                          <p>
+                            • <strong>Repository access:</strong> Select <em>Public Repositories</em> or this specific repo.
+                          </p>
+                          <p>
+                            • <strong>Permissions:</strong> Grant <code className="font-mono bg-zinc-200/60 dark:bg-zinc-700 px-1 rounded">Contents: Read-only</code> and <code className="font-mono bg-zinc-200/60 dark:bg-zinc-700 px-1 rounded">Metadata: Read-only</code>.
+                          </p>
+                          <p>
+                            • <strong>User permissions:</strong> None required.
+                          </p>
+                          <a
+                            href="https://github.com/settings/personal-access-tokens/new"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block text-blue-600 dark:text-blue-400 hover:underline pt-1 font-medium"
+                          >
+                            Generate Fine-grained Token &rarr;
+                          </a>
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-zinc-600 dark:text-zinc-400 space-y-1 bg-zinc-50 dark:bg-zinc-800/50 p-2.5 rounded-lg border border-zinc-200/60 dark:border-zinc-800">
+                          <p className="font-semibold text-zinc-800 dark:text-zinc-200">
+                            Classic PAT (<code>ghp_...</code>):
+                          </p>
+                          <p>
+                            • <strong>Scope:</strong> Check only <code className="font-mono bg-zinc-200/60 dark:bg-zinc-700 px-1 rounded">public_repo</code> (read-only for public repositories).
+                          </p>
+                          <p>
+                            • No administration or write scopes needed.
+                          </p>
+                          <a
+                            href="https://github.com/settings/tokens/new?scopes=public_repo&description=RepoLens"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block text-blue-600 dark:text-blue-400 hover:underline pt-1 font-medium"
+                          >
+                            Generate Classic Token &rarr;
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Security disclosure */}
+                      <div className="text-[10px] text-zinc-400 dark:text-zinc-500 pt-1 leading-relaxed">
+                        🔒 Token is saved only in this browser (localStorage) and never forwarded to AI models or third-party services.
+                      </div>
                     </div>
                   </div>
                 )}

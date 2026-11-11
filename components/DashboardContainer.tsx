@@ -1,10 +1,13 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useTransition } from "react";
+import React, { useState, useEffect, useCallback, useTransition, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { AmbientSpotlight } from "@/components/ui/AmbientSpotlight.tsx";
 import { Header } from "@/components/Header.tsx";
+// import { ErrorBoundary } from "@/components/ErrorBoundary.tsx"; // Unused import removed
+// useRef imported via React import above
+
 import { RepoSearchInput } from "@/components/RepoSearchInput.tsx";
 import { QuickTryRepos } from "@/components/QuickTryRepos.tsx";
 import { RepoOverviewCard } from "@/components/overview/RepoOverviewCard.tsx";
@@ -19,7 +22,7 @@ import { EmptyState } from "@/components/states/EmptyState.tsx";
 import { FerrofluidBackground } from "@/components/landing/FerrofluidBackground.tsx";
 import { RepoLensHero } from "@/components/landing/RepoLensHero.tsx";
 import type { RepoOverview, RateLimitInfo, ApiResponse } from "@/lib/github/types.ts";
-import { loadPat } from "@/lib/pat/storage.ts";
+import { loadPat, clearPat } from "@/lib/pat/storage.ts";
 
 type ActiveTab = "overview" | "intelligence" | "ai" | "contributor" | "explorer";
 
@@ -97,15 +100,24 @@ const TABS: TabItem[] = [
  * Safe to call during SSR — localStorage access is guarded.
  */
 function usePat() {
-  const [pat, setPat] = useState<string | null>(null);
-  useEffect(() => {
-    setPat(loadPat());
-  }, []);
+  const [pat, setPat] = useState<string | null>(loadPat());
   const refresh = useCallback((next: string | null) => setPat(next), []);
   return { pat, refresh };
 }
 
 export function DashboardContainer() {
+  // Abort controller for in‑flight GitHub requests
+  const abortControllerRef = useRef<AbortController | null>(null);
+  // Monotonically increasing request identifier to discard stale responses
+  const requestIdRef = useRef(0);
+
+  // Cleanup any pending request when the component unmounts
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
   const searchParams = useSearchParams();
   const router = useRouter();
   const shouldReduceMotion = useReducedMotion();
@@ -131,61 +143,147 @@ export function DashboardContainer() {
   } | null>(null);
 
   const fetchRepoData = useCallback(async (targetRepo: string) => {
-    if (!targetRepo) {
-      setOverview(null);
+  // Abort any previous request and start a new one
+  abortControllerRef.current?.abort();
+  const controller = new AbortController();
+  abortControllerRef.current = controller;
+  const requestId = ++requestIdRef.current;
+  const isStale = () => requestId !== requestIdRef.current;
+
+  if (!targetRepo) {
+    // Reset state for empty repository and invalidate pending IDs by incrementing requestId
+    abortControllerRef.current?.abort();
+    requestIdRef.current++;
+    setOverview(null);
+    setErrorState(null);
+    setRateLimit(null);
+    setIsLoading(false);
+    return;
+  }
+
+  setIsLoading(true);
+  setErrorState(null);
+
+  try {
+    const headers: HeadersInit = {};
+    const currentPat = loadPat();
+    if (currentPat) headers["x-github-token"] = currentPat;
+
+    const res = await fetch(`/api/repo/overview?repo=${encodeURIComponent(targetRepo)}`, {
+      headers,
+      signal: controller.signal,
+    });
+    const body: ApiResponse<RepoOverview> = await res.json();
+
+    if (isStale()) return; // discard stale response
+
+    if (body.success) {
+      setOverview(body.data);
+      setRateLimit(body.data.rateLimit);
       setErrorState(null);
+    } else {
+      // Attempt unauthenticated fallback when token is invalid or lacks permission
+      if (currentPat && (body.error.code === "INVALID_PAT" || body.error.code === "FORBIDDEN")) {
+        try {
+          const fallbackRes = await fetch(`/api/repo/overview?repo=${encodeURIComponent(targetRepo)}`, {
+            signal: controller.signal,
+          });
+          const fallbackBody: ApiResponse<RepoOverview> = await fallbackRes.json();
+          if (isStale()) return;
+          if (fallbackBody.success) {
+            setOverview(fallbackBody.data);
+            setRateLimit(fallbackBody.data.rateLimit);
+            setErrorState({
+              code: body.error.code === "INVALID_PAT" ? "INVALID_PAT_FALLBACK" : "FORBIDDEN_FALLBACK",
+              message:
+                body.error.code === "INVALID_PAT"
+                  ? "Your configured GitHub token is invalid or expired. Loaded public repository using unauthenticated quota. Please update or clear your token."
+                  : `Your token lacks permission for this repository (${body.error.message}). Loaded using unauthenticated public quota.`,
+            });
+            return;
+          }
+        } catch {
+          // ignore fallback errors
+        }
+      }
+
+      // Preserve existing overview on auth errors, otherwise clear
+      setOverview((prev) => (body.error.code === "INVALID_PAT" || body.error.code === "FORBIDDEN" ? prev : null));
+      setErrorState(body.error);
+      if (body.error.limit !== undefined && body.error.remaining !== undefined) {
+        setRateLimit({
+          limit: body.error.limit,
+          remaining: body.error.remaining,
+          resetAt: body.error.resetAt ? new Date(body.error.resetAt) : new Date(),
+          used: body.error.limit - body.error.remaining,
+        });
+      }
+    }
+  } catch (err: unknown) {
+    const error = err as Error;
+    if (error.name === "AbortError") {
+      // Intentional abort – do not set error state
       return;
     }
+    // Preserve existing overview on network failures
+    setOverview((prev) => prev);
+    setErrorState({
+      code: "NETWORK_ERROR",
+      message: error.message,
+    });
+  } finally {
+    // Only clear loading if this is the latest request
+    if (!isStale()) {
+      setIsLoading(false);
+    }
+  }
+}, []);
 
+  const handleOpenPatSettings = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("open-pat-settings"));
+  }, []);
+
+  const handleClearPat = useCallback(() => {
+    clearPat();
+    refreshPat(null);
+    if (currentRepo) {
+      fetchRepoData(currentRepo);
+    }
+  }, [currentRepo, fetchRepoData, refreshPat]);
+
+  const handleUsePublicAccess = useCallback(async () => {
+    if (!currentRepo) return;
     setIsLoading(true);
     setErrorState(null);
-
     try {
-      const headers: HeadersInit = {};
-      // Read latest PAT at call time (not stale closure)
-      const currentPat = loadPat();
-      if (currentPat) headers["x-github-token"] = currentPat;
-
       const res = await fetch(
-        `/api/repo/overview?repo=${encodeURIComponent(targetRepo)}`,
-        { headers }
+        `/api/repo/overview?repo=${encodeURIComponent(currentRepo)}`
       );
       const body: ApiResponse<RepoOverview> = await res.json();
-
       if (body.success) {
         setOverview(body.data);
         setRateLimit(body.data.rateLimit);
         setErrorState(null);
       } else {
-        setOverview(null);
         setErrorState(body.error);
-        if (body.error.limit !== undefined && body.error.remaining !== undefined) {
-          setRateLimit({
-            limit: body.error.limit,
-            remaining: body.error.remaining,
-            resetAt: body.error.resetAt ? new Date(body.error.resetAt) : new Date(),
-            used: body.error.limit - body.error.remaining,
-          });
-        }
       }
     } catch (err) {
-      setOverview(null);
       setErrorState({
         code: "NETWORK_ERROR",
-        message: err instanceof Error ? err.message : "Failed to fetch repository information.",
+        message: err instanceof Error ? err.message : "Failed to load public repository.",
       });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentRepo]);
 
   // Sync state when URL params change
   useEffect(() => {
     if (repoParam && repoParam !== currentRepo) {
-      setCurrentRepo(repoParam);
-      fetchRepoData(repoParam);
+      setTimeout(() => setCurrentRepo(repoParam), 0);
+      setTimeout(() => fetchRepoData(repoParam), 0);
     } else if (repoParam && !overview && !isLoading && !errorState) {
-      fetchRepoData(repoParam);
+      setTimeout(() => fetchRepoData(repoParam), 0);
     }
   }, [repoParam, currentRepo, overview, isLoading, errorState, fetchRepoData]);
 
@@ -310,23 +408,50 @@ export function DashboardContainer() {
               <section className="w-full flex flex-col gap-6">
                 {isLoading ? (
                   <LoadingSkeleton />
-                ) : errorState ? (
+                ) : errorState && !overview ? (
                   errorState.code === "RATE_LIMITED" && errorState.resetAt ? (
                     <RateLimitBanner
                       resetAt={errorState.resetAt}
                       limit={errorState.limit}
                       remaining={errorState.remaining}
                       onRetry={() => fetchRepoData(currentRepo)}
+                      onOpenPatSettings={handleOpenPatSettings}
                     />
                   ) : (
                     <ErrorBanner
                       code={errorState.code}
                       message={errorState.message}
                       onRetry={() => fetchRepoData(currentRepo)}
+                      onClearPat={handleClearPat}
+                      onOpenPatSettings={handleOpenPatSettings}
+                      onUsePublicAccess={handleUsePublicAccess}
                     />
                   )
                 ) : overview ? (
                   <div className="flex flex-col gap-6">
+                    {/* Preserved repository view alert banner */}
+                    {errorState && (
+                      <div className="w-full">
+                        {errorState.code === "RATE_LIMITED" && errorState.resetAt ? (
+                          <RateLimitBanner
+                            resetAt={errorState.resetAt}
+                            limit={errorState.limit}
+                            remaining={errorState.remaining}
+                            onRetry={() => fetchRepoData(currentRepo)}
+                            onOpenPatSettings={handleOpenPatSettings}
+                          />
+                        ) : (
+                          <ErrorBanner
+                            code={errorState.code}
+                            message={errorState.message}
+                            onRetry={() => fetchRepoData(currentRepo)}
+                            onClearPat={handleClearPat}
+                            onOpenPatSettings={handleOpenPatSettings}
+                            onUsePublicAccess={handleUsePublicAccess}
+                          />
+                        )}
+                      </div>
+                    )}
                     {/* Tab Navigation Controls */}
                     <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-2">
                       <div className="flex items-center gap-2 flex-wrap">

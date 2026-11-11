@@ -6,6 +6,7 @@ import {
   GitHubNotFoundError,
   GitHubRateLimitError,
   GitHubAuthError,
+  GitHubForbiddenError,
   InvalidRepoUrlError,
   GitHubApiError,
 } from "@/lib/github/errors.ts";
@@ -84,6 +85,19 @@ export async function GET(
           },
         },
         { status: 401 }
+      );
+    }
+
+    if (error instanceof GitHubForbiddenError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: error.code,
+            message: error.message,
+          },
+        },
+        { status: 403 }
       );
     }
 

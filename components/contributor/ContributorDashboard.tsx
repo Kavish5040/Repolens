@@ -52,8 +52,22 @@ export function ContributorDashboard({
         const body: ApiResponse<{ issues: ContributorIssue[]; totalOpenCount: number }> =
           await res.json();
 
-        if (body.success) {
-          const loadedIssues = body.data.issues || [];
+        let activeBody = body;
+        if (!activeBody.success && currentPat && (activeBody.error?.code === "INVALID_PAT" || activeBody.error?.code === "FORBIDDEN")) {
+          try {
+            const fallbackRes = await fetch(`/api/repo/issues?${params.toString()}`);
+            const fallbackBody: ApiResponse<{ issues: ContributorIssue[]; totalOpenCount: number }> =
+              await fallbackRes.json();
+            if (fallbackBody.success) {
+              activeBody = fallbackBody;
+            }
+          } catch {
+            // Ignore fallback failure
+          }
+        }
+
+        if (activeBody.success) {
+          const loadedIssues = activeBody.data.issues || [];
           setIssues(loadedIssues);
           if (loadedIssues.length > 0) {
             if (initialIssueNumber) {
@@ -71,9 +85,8 @@ export function ContributorDashboard({
             setSelectedIssue(null);
           }
         } else {
-          setError(body.error?.message || "Failed to load repository issues.");
-          setIssues([]);
-          setSelectedIssue(null);
+          setError(activeBody.error?.message || "Failed to load repository issues.");
+          setIssues((prev) => prev);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load repository issues.");

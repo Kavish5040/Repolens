@@ -65,10 +65,25 @@ export function IntelligenceDashboard({
       );
       const data: ApiResponse<RepoIntelligenceData> = await res.json();
 
-      if (data.success) {
-        setIntelligence(data.data);
+      let activeData = data;
+      if (!activeData.success && currentPat && (activeData.error?.code === "INVALID_PAT" || activeData.error?.code === "FORBIDDEN")) {
+        try {
+          const fallbackRes = await fetch(
+            `/api/repo/intelligence?repo=${encodeURIComponent(repoFullName)}&branch=${encodeURIComponent(defaultBranch)}`
+          );
+          const fallbackData: ApiResponse<RepoIntelligenceData> = await fallbackRes.json();
+          if (fallbackData.success) {
+            activeData = fallbackData;
+          }
+        } catch {
+          // Ignore fallback failure
+        }
+      }
+
+      if (activeData.success) {
+        setIntelligence(activeData.data);
       } else {
-        setError(data.error.message || "Failed to analyze repository intelligence.");
+        setError(activeData.error?.message || "Failed to analyze repository intelligence.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load intelligence data.");

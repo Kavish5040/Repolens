@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseGitHubUrl } from "@/lib/github/parser.ts";
-import { fetchGitTree } from "@/lib/github/client.ts";
+import type { IssueCategory } from "@/lib/github/types.ts";
 import { detectKeyDocuments } from "@/lib/github/tree.ts";
 import { fetchRepoIssues } from "@/lib/contributor/issues.ts";
-import type { IssueCategory } from "@/lib/contributor/types.ts";
+import { fetchGitTree } from "@/lib/github/client.ts";
 import {
   GitHubNotFoundError,
   GitHubRateLimitError,
   GitHubAuthError,
+  GitHubForbiddenError,
   InvalidRepoUrlError,
   GitHubApiError,
 } from "@/lib/github/errors.ts";
@@ -42,8 +43,17 @@ export async function GET(request: NextRequest) {
     const { owner, repo } = parseGitHubUrl(repoQuery);
 
     // 1. Fetch Git Tree to enable localized readiness scoring
-    let treeItems: any[] = [];
-    let keyDocs: any[] = [];
+    // Declare variables for tree items and key documents
+    let treeItems: GitTreeItemDto[] = [];
+    let keyDocs: KeyDocument[] = [];
+    // Fetch the Git tree
+    try {
+      const { tree: rawTree } = await fetchGitTree(owner, repo, branchParam, { clientPat });
+      treeItems = rawTree.tree || [];
+      keyDocs = detectKeyDocuments(treeItems);
+    } catch {
+      // Tree fetch failure shouldn't block issue listing
+    }
     try {
       const { tree: rawTree } = await fetchGitTree(owner, repo, branchParam, { clientPat });
       treeItems = rawTree.tree || [];
@@ -94,6 +104,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: { code: error.code, message: error.message } },
         { status: 401 }
+      );
+    }
+    if (error instanceof GitHubForbiddenError) {
+      return NextResponse.json(
+        { success: false, error: { code: error.code, message: error.message } },
+        { status: 403 }
       );
     }
     if (error instanceof GitHubNotFoundError) {

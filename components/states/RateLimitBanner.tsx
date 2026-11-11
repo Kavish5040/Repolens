@@ -7,6 +7,7 @@ interface RateLimitBannerProps {
   limit?: number;
   remaining?: number;
   onRetry?: () => void;
+  onOpenPatSettings?: () => void;
 }
 
 export function RateLimitBanner({
@@ -14,6 +15,7 @@ export function RateLimitBanner({
   limit = 60,
   remaining = 0,
   onRetry,
+  onOpenPatSettings,
 }: RateLimitBannerProps) {
   const resetDate = typeof resetAt === "string" ? new Date(resetAt) : resetAt;
   const [timeLeft, setTimeLeft] = useState<string>("");
@@ -66,18 +68,33 @@ export function RateLimitBanner({
             GitHub provides <strong>{limit} unauthenticated requests per hour</strong> per IP address. Your current quota ({remaining}/{limit}) has been exhausted.
           </p>
 
-          <div className="mt-3 p-3 rounded-xl bg-amber-100/60 dark:bg-amber-900/40 text-xs text-amber-900 dark:text-amber-200 flex flex-col gap-1">
-            <p className="font-semibold">💡 How to get 5,000 requests/hour:</p>
-            <p>
-              <strong>Option A (browser):</strong> Click <strong>&ldquo;Add token&rdquo;</strong> in the header and enter your GitHub Personal Access Token with <code>public_repo</code> scope.
-            </p>
-            <p>
-              <strong>Option B (server):</strong> Set <code>GITHUB_TOKEN=...</code> in <code>.env.local</code> (for self-hosted deployments).
-            </p>
+          <div className="mt-3 p-3.5 rounded-xl bg-amber-100/60 dark:bg-amber-900/40 text-xs text-amber-950 dark:text-amber-100 flex flex-col gap-2">
+            <p className="font-semibold">💡 How to unlock 5,000 requests/hour:</p>
+            <ul className="list-disc pl-4 space-y-1 text-amber-900/90 dark:text-amber-200/90">
+              <li>
+                <strong>Classic PAT (<code>ghp_...</code>)</strong>: Create a token with <code>public_repo</code> scope.
+              </li>
+              <li>
+                <strong>Fine-grained PAT (<code>github_pat_...</code>)</strong>: Create a token with Public Repository access and <code>Contents: Read-only</code> (and default <code>Metadata: Read-only</code>).
+              </li>
+              <li>
+                <strong>Server Deployment</strong>: Set <code>GITHUB_TOKEN=...</code> in <code>.env.local</code>.
+              </li>
+            </ul>
           </div>
 
-          {onRetry && (
-            <div className="mt-4">
+          <div className="mt-4 flex items-center gap-2 flex-wrap">
+            {onOpenPatSettings && (
+              <button
+                type="button"
+                onClick={onOpenPatSettings}
+                className="px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-colors"
+              >
+                Configure GitHub Token
+              </button>
+            )}
+
+            {onRetry && (
               <button
                 type="button"
                 onClick={onRetry}
@@ -85,8 +102,8 @@ export function RateLimitBanner({
               >
                 Check Quota & Retry
               </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -67,7 +67,25 @@ export function RepoExplorer({
           if (onFileSelect) onFileSelect(defaultDoc);
         }
       } else {
-        setTreeError(body.error.message);
+        // Attempt unauthenticated public fallback if token was rejected
+        if (currentPat && (body.error?.code === "INVALID_PAT" || body.error?.code === "FORBIDDEN")) {
+          try {
+            const fallbackRes = await fetch(`/api/repo/tree?repo=${encodeURIComponent(repoFullName)}${branchQuery}`);
+            const fallbackBody: ApiResponse<RepoTreeData> = await fallbackRes.json();
+            if (fallbackBody.success) {
+              setTreeData(fallbackBody.data);
+              if (!selectedPath && fallbackBody.data.keyDocuments.length > 0) {
+                const defaultDoc = fallbackBody.data.keyDocuments[0].path;
+                setSelectedPath(defaultDoc);
+                if (onFileSelect) onFileSelect(defaultDoc);
+              }
+              return;
+            }
+          } catch {
+            // Ignore fallback failure
+          }
+        }
+        setTreeError(body.error?.message || "Failed to load repository tree.");
       }
     } catch (err) {
       setTreeError(err instanceof Error ? err.message : "Failed to load repository tree.");
@@ -100,7 +118,22 @@ export function RepoExplorer({
         if (body.success) {
           setFileContent(body.data);
         } else {
-          setFileError(body.error.message);
+          // Attempt unauthenticated public fallback if token was rejected
+          if (currentPat && (body.error?.code === "INVALID_PAT" || body.error?.code === "FORBIDDEN")) {
+            try {
+              const fallbackRes = await fetch(
+                `/api/repo/content?repo=${encodeURIComponent(repoFullName)}&path=${encodeURIComponent(path)}${branchQuery}`
+              );
+              const fallbackBody: ApiResponse<FileContentData> = await fallbackRes.json();
+              if (fallbackBody.success) {
+                setFileContent(fallbackBody.data);
+                return;
+              }
+            } catch {
+              // Ignore fallback failure
+            }
+          }
+          setFileError(body.error?.message || "Failed to load file content.");
         }
       } catch (err) {
         setFileError(err instanceof Error ? err.message : "Failed to load file content.");

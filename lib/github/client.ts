@@ -14,6 +14,7 @@ import {
   GitHubNotFoundError,
   GitHubRateLimitError,
   GitHubAuthError,
+  GitHubForbiddenError,
   GitHubApiError,
 } from "./errors.ts";
 import { parseGitHubUrl } from "./parser.ts";
@@ -220,6 +221,33 @@ export async function fetchGitHub<T>(
       if (rateLimit.remaining === 0 || message.toLowerCase().includes("rate limit")) {
         throw new GitHubRateLimitError(rateLimit.resetAt, rateLimit.limit, rateLimit.remaining);
       }
+
+      // Check for SAML SSO requirement header: X-GitHub-SSO: required; url=<url>
+      let ssoUrl: string | undefined;
+      const ssoHeader = response.headers.get("x-github-sso");
+      if (ssoHeader) {
+        const urlMatch = ssoHeader.match(/url=([^\s;]+)/i);
+        if (urlMatch && urlMatch[1]) {
+          try {
+            const parsed = new URL(urlMatch[1]);
+            if (parsed.protocol === "https:" && parsed.hostname.endsWith("github.com")) {
+              ssoUrl = urlMatch[1];
+            }
+          } catch {
+            // Ignore malformed URL
+          }
+        }
+      }
+
+      const forbiddenMsg = ssoUrl
+        ? "GitHub API access forbidden: Organization SAML SSO authorization is required."
+        : message || "GitHub API access forbidden (403). Your token may lack required permissions or repository access.";
+
+      throw new GitHubForbiddenError(
+        forbiddenMsg,
+        errorBody,
+        ssoUrl
+      );
     }
 
     throw new GitHubApiError(
